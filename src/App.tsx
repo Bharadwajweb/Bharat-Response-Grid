@@ -14,6 +14,7 @@ import { AnalyticsCenterPage } from './pages/AnalyticsCenterPage';
 import { CitizenPortalPage } from './pages/CitizenPortalPage';
 import { UserManagementPage } from './pages/UserManagementPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { DecisionSupportPage } from './pages/DecisionSupportPage';
 import { useAppStore } from './store/appStore';
 import './i18n';
 
@@ -91,6 +92,12 @@ function App() {
           <Route path="users" element={<UserManagementPage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="risk-analysis" element={<DecisionSupportPage />} />
+          <Route path="evacuation" element={<DecisionSupportPage />} />
+          <Route path="earthquake-intelligence" element={<MapsTrackingPage />} />
+          <Route path="live-map" element={<MapsTrackingPage />} />
+          <Route path="weather-intelligence" element={<WeatherIntelligencePage />} />
+          <Route path="disaster-simulation" element={<ThreatSimulationPage />} />
         </Route>
 
         {/* Catch-all */}
