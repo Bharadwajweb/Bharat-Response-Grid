@@ -12,6 +12,7 @@ import { MOCK_THREATS } from '../data/mockData';
 import { SeverityBadge, LiveIndicator } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { SearchInput } from '../components/ui/Input';
+import { formatSyncTime, refreshLiveData, statusLabel, statusTone, useLiveData } from '../services/liveDataStore';
 
 const ALERT_BADGE_STYLES: Record<IMDAlertLevel, { label: string; bg: string; text: string; border: string }> = {
   red: { label: 'Red Alert (Take Action)', bg: 'bg-red-500/15', text: 'text-red-400', border: 'border-red-500/30' },
@@ -53,6 +54,8 @@ export const WeatherIntelligencePage: React.FC = () => {
   // Locality Type Filter in State View
   const [localityFilter, setLocalityFilter] = useState<'all' | LocalityType>('all');
   const [localitySearch, setLocalitySearch] = useState('');
+  const liveData = useLiveData();
+  const weatherStatus = liveData.weather?.status;
 
   // Selected state object
   const activeState = useMemo(() => {
@@ -105,6 +108,9 @@ export const WeatherIntelligencePage: React.FC = () => {
                 <Cloud size={20} className="text-cyan-400" />
                 Weather Intelligence Center
               </h1>
+              <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold tracking-wider ${statusTone(weatherStatus)}`}>
+                {statusLabel(weatherStatus)}
+              </span>
               <LiveIndicator label="IMD Radar Active" />
             </div>
             <p className="text-sm text-slate-400">
@@ -126,10 +132,11 @@ export const WeatherIntelligencePage: React.FC = () => {
               variant="secondary"
               size="sm"
               icon={<RefreshCw size={13} />}
-              onClick={() => {}}
+              onClick={() => void refreshLiveData()}
               className="text-xs text-slate-300 bg-white/5 hover:bg-white/10"
+              disabled={liveData.syncing}
             >
-              Sync IMD Feeds
+              {liveData.syncing ? 'Synchronizing…' : 'Sync Live Feeds'}
             </Button>
           </div>
         </div>
@@ -186,7 +193,7 @@ export const WeatherIntelligencePage: React.FC = () => {
                 </p>
               </div>
               <span className="text-xs font-mono text-slate-500">
-                Auto-refreshed: {new Date().toLocaleTimeString('en-IN', { hour12: false })} IST
+                Last sync: {formatSyncTime(liveData.lastSync)} IST · refreshes automatically every 60 seconds
               </span>
             </div>
 
