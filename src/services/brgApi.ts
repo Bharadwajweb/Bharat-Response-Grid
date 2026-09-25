@@ -16,7 +16,14 @@ async function request<T>(path: string, fallback: T, source: string): Promise<Da
   try {
     const response = await fetch(`${apiBaseUrl()}${path}`, { headers: { Accept: 'application/json' } });
     if (!response.ok) throw new Error(`Request failed with ${response.status}`);
-    return { data: await response.json() as T, source, status: 'LIVE', updatedAt: new Date().toISOString() };
+    const payload = await response.json() as Partial<DataEnvelope<T>> & { updated_at?: string };
+    return {
+      data: (payload.data ?? payload) as T,
+      source: payload.source ?? source,
+      status: payload.status === 'LIVE' || payload.status === 'CACHED' || payload.status === 'OFFLINE' || payload.status === 'SIMULATION' ? payload.status : 'LIVE',
+      updatedAt: payload.updatedAt ?? payload.updated_at ?? new Date().toISOString(),
+      fallbackReason: payload.fallbackReason,
+    };
   } catch (error) {
     return { data: fallback, source, status: 'OFFLINE', updatedAt: new Date().toISOString(), fallbackReason: error instanceof Error ? error.message : 'Service unavailable' };
   }
@@ -30,3 +37,13 @@ export const brgApi = {
 };
 
 export function sourceBadge(envelope: Pick<DataEnvelope<unknown>, 'status'>) { return envelope.status; }
+
+export function connectToEvents(onEvent: (event: unknown) => void) {
+  const base = import.meta.env.VITE_API_BASE_URL;
+  if (!base || typeof WebSocket === 'undefined') return () => undefined;
+  const socket = new WebSocket(`${apiBaseUrl().replace(/^http/, 'ws')}/api/events`);
+  socket.onmessage = (message) => {
+    try { onEvent(JSON.parse(message.data)); } catch { onEvent(message.data); }
+  };
+  return () => socket.close();
+}

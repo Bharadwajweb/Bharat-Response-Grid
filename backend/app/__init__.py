@@ -1,0 +1,1 @@
+"""BRG FastAPI application package."""
