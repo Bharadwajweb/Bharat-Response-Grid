@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MessageSquare, Send, Users, Hash, Shield, ChevronRight } from 'lucide-react';
+import { MessageSquare, Send, Users, Hash } from 'lucide-react';
 import { MOCK_ROOMS, MOCK_MESSAGES, MOCK_USERS } from '../data/mockData';
-import { UserAvatar, PresenceIndicator } from '../components/ui/Overlay';
-import { Badge } from '../components/ui/Badge';
+import { UserAvatar } from '../components/ui/Overlay';
 import type { CommandRoom, ChatMessage } from '../types';
 
-const LEVEL_STYLES = {
+const LEVEL_STYLES: Record<string, string> = {
   national: 'text-red-400 bg-red-500/10 border-red-500/20',
+  central: 'text-red-400 bg-red-500/10 border-red-500/20',
   state: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
   district: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
 };

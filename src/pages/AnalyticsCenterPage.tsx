@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { BarChart3, Download, Calendar } from 'lucide-react';
+import { BarChart3, Download } from 'lucide-react';
 import {
   Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement,
   PointElement, ArcElement, Title, Tooltip, Legend, Filler,
 } from 'chart.js';
 import { Bar, Line, Doughnut } from 'react-chartjs-2';
 import { MOCK_KPI, MOCK_TREND } from '../data/mockData';
-import { StatCard } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { LiveIndicator } from '../components/ui/Badge';
 

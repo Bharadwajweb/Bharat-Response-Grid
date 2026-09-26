@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Users, Plus, Search, MoreHorizontal, ShieldCheck, ShieldOff,
-  Trash2, Activity, Mail, UserCheck
+  Users, Plus, ShieldCheck, ShieldOff,
+  Trash2, Activity
 } from 'lucide-react';
 import { MOCK_USERS, MOCK_AUDIT_LOGS } from '../data/mockData';
 import { Badge } from '../components/ui/Badge';

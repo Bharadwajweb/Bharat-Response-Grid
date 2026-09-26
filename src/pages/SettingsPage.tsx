@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Sun, Moon, Globe, Lock, Activity, ChevronRight, Check } from 'lucide-react';
+import { Settings, Sun, Moon, Globe, Lock, Activity, Check } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useIncidentStore } from '../store/incidentStore';
 import { Button } from '../components/ui/Button';
@@ -14,18 +14,17 @@ export const SettingsPage: React.FC = () => {
   const [newPwd, setNewPwd] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
   const [saved, setSaved] = useState(false);
+  const [apiLatency] = useState(24);
 
   const handleSave = async () => {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const handleLanguageChange = (lang: 'en' | 'te') => {
+  const handleLanguageChange = (lang: 'en' | 'te' | 'hi' | 'ta') => {
     i18n.changeLanguage(lang);
     setLanguage(lang);
   };
-
-  const apiLatency = Math.floor(Math.random() * 40) + 12;
 
   return (
     <div className="flex flex-col min-h-full max-w-3xl mx-auto w-full">
@@ -86,15 +85,17 @@ export const SettingsPage: React.FC = () => {
             <div>
               <h3 className="text-sm font-semibold text-slate-200 mb-1">Interface Language</h3>
               <p className="text-xs text-slate-500 mb-3">Select the display language for the application</p>
-              <div className="flex gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
-                  { code: 'en' as const, name: 'English', native: 'English', desc: 'Full interface support' },
-                  { code: 'te' as const, name: 'Telugu', native: 'తెలుగు', desc: 'Partial interface support' },
+                  { code: 'en' as const, name: 'English', native: 'English', desc: 'Standard Command' },
+                  { code: 'hi' as const, name: 'Hindi', native: 'हिन्दी', desc: 'National Language' },
+                  { code: 'ta' as const, name: 'Tamil', native: 'தமிழ்', desc: 'State Regional' },
+                  { code: 'te' as const, name: 'Telugu', native: 'తెలుగు', desc: 'State Regional' },
                 ].map((l) => (
                   <button
                     key={l.code}
                     onClick={() => handleLanguageChange(l.code)}
-                    className={`flex-1 flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all ${
+                    className={`flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all ${
                       language === l.code
                         ? 'border-blue-500 bg-blue-500/8'
                         : 'border-white/10 hover:border-white/20 bg-white/3'

@@ -1,4 +1,4 @@
-import type { WeatherCondition, Severity } from '../types';
+import type { WeatherCondition } from '../types';
 
 export type LocalityType = 'city' | 'town' | 'village';
 export type IMDAlertLevel = 'red' | 'orange' | 'yellow' | 'green';

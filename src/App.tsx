@@ -8,6 +8,10 @@ import { EmergencyOperationsPage } from './pages/EmergencyOperationsPage';
 import { MapsTrackingPage } from './pages/MapsTrackingPage';
 import { WeatherIntelligencePage } from './pages/WeatherIntelligencePage';
 import { ThreatSimulationPage } from './pages/ThreatSimulationPage';
+import { DecisionSupportPage } from './pages/DecisionSupportPage';
+import { EarthquakeIntelligencePage } from './pages/EarthquakeIntelligencePage';
+import { ResearchEvaluationPage } from './pages/ResearchEvaluationPage';
+import { SystemStatusPage } from './pages/SystemStatusPage';
 import { ResourceManagementPage } from './pages/ResourceManagementPage';
 import { CommunicationsPage } from './pages/CommunicationsPage';
 import { AnalyticsCenterPage } from './pages/AnalyticsCenterPage';
@@ -37,10 +41,10 @@ const ProfilePage: React.FC = () => {
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4 text-sm">
-          <div><p className="text-xs text-slate-600 uppercase tracking-wider">Command Level</p><p className="font-medium text-slate-200 capitalize mt-1">{currentUser?.commandLevel}</p></div>
-          <div><p className="text-xs text-slate-600 uppercase tracking-wider">Status</p><p className="font-medium text-green-400 capitalize mt-1">{currentUser?.status}</p></div>
-          <div><p className="text-xs text-slate-600 uppercase tracking-wider">State</p><p className="font-medium text-slate-200 mt-1">{currentUser?.stateAssigned || '—'}</p></div>
-          <div><p className="text-xs text-slate-600 uppercase tracking-wider">Last Active</p><p className="font-medium text-slate-200 mt-1">{currentUser?.lastActive}</p></div>
+          <div><p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Command Level</p><p className="font-semibold text-slate-100 capitalize mt-1">{currentUser?.commandLevel}</p></div>
+          <div><p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Status</p><p className="font-semibold text-emerald-400 capitalize mt-1">{currentUser?.status}</p></div>
+          <div><p className="text-xs text-slate-400 font-medium uppercase tracking-wider">State Assigned</p><p className="font-semibold text-slate-100 mt-1">{currentUser?.stateAssigned || '—'}</p></div>
+          <div><p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Last Active</p><p className="font-semibold text-slate-100 mt-1">{currentUser?.lastActive}</p></div>
         </div>
       </div>
     </div>
@@ -80,14 +84,26 @@ function App() {
           }
         >
           <Route index element={<CommandOverviewPage />} />
+          <Route path="decision-support" element={<DecisionSupportPage />} />
+          <Route path="risk-intelligence" element={<DecisionSupportPage />} />
           <Route path="incidents" element={<IncidentManagementPage />} />
           <Route path="operations" element={<EmergencyOperationsPage />} />
           <Route path="maps" element={<MapsTrackingPage />} />
+          <Route path="evacuation" element={<MapsTrackingPage />} />
           <Route path="weather" element={<WeatherIntelligencePage />} />
+          <Route path="earthquakes" element={<EarthquakeIntelligencePage />} />
           <Route path="simulation" element={<ThreatSimulationPage />} />
+          <Route path="disaster-replay" element={<ThreatSimulationPage />} />
+          <Route path="shelters" element={<ResourceManagementPage />} />
           <Route path="resources" element={<ResourceManagementPage />} />
+          <Route path="teams" element={<EmergencyOperationsPage />} />
+          <Route path="hospitals" element={<EmergencyOperationsPage />} />
+          <Route path="alerts" element={<CommunicationsPage />} />
           <Route path="communications" element={<CommunicationsPage />} />
+          <Route path="citizen-reports" element={<IncidentManagementPage />} />
           <Route path="analytics" element={<AnalyticsCenterPage />} />
+          <Route path="research" element={<ResearchEvaluationPage />} />
+          <Route path="system-status" element={<SystemStatusPage />} />
           <Route path="users" element={<UserManagementPage />} />
           <Route path="profile" element={<ProfilePage />} />
           <Route path="settings" element={<SettingsPage />} />

@@ -2,21 +2,21 @@ import React from 'react';
 import type { Severity, IncidentStatus, DisasterType } from '../../types';
 
 // ─── Severity Badge ───
-export const SEVERITY_STYLES: Record<Severity, string> = {
+const SEVERITY_STYLES: Record<Severity, string> = {
   critical: 'bg-red-500/15 text-red-400 border border-red-500/30',
   high: 'bg-orange-500/15 text-orange-400 border border-orange-500/30',
   medium: 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30',
   low: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
 };
 
-export const SEVERITY_DOT: Record<Severity, string> = {
+const SEVERITY_DOT: Record<Severity, string> = {
   critical: 'bg-red-500',
   high: 'bg-orange-500',
   medium: 'bg-yellow-500',
   low: 'bg-blue-400',
 };
 
-export const SEVERITY_LABELS: Record<Severity, string> = {
+const SEVERITY_LABELS: Record<Severity, string> = {
   critical: 'CRITICAL',
   high: 'HIGH',
   medium: 'MEDIUM',
@@ -43,19 +43,27 @@ export const SeverityBadge: React.FC<SeverityBadgeProps> = ({ severity, size = '
 
 // ─── Status Badge ───
 const STATUS_STYLES: Record<IncidentStatus, string> = {
+  detected: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
   reported: 'bg-slate-500/15 text-slate-400 border border-slate-500/30',
   verified: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
-  responding: 'bg-primary-500/15 text-primary-400 border border-primary-500/30',
+  assessed: 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30',
+  responding: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
+  evacuation: 'bg-rose-500/15 text-rose-400 border border-rose-500/30',
   contained: 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30',
   resolved: 'bg-green-500/15 text-green-400 border border-green-500/30',
+  closed: 'bg-slate-600/15 text-slate-400 border border-slate-600/30',
 };
 
 const STATUS_LABELS: Record<IncidentStatus, string> = {
+  detected: 'Detected',
   reported: 'Reported',
   verified: 'Verified',
+  assessed: 'Assessed',
   responding: 'Responding',
+  evacuation: 'Evacuation',
   contained: 'Contained',
   resolved: 'Resolved',
+  closed: 'Closed',
 };
 
 interface StatusBadgeProps {

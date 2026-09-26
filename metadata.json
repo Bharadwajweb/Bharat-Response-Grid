@@ -1,0 +1,7 @@
+{
+  "name": "BRG Command Gateway",
+  "description": "Bharat Response Grid National Disaster Management Platform",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,15 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  Cloud, Thermometer, Droplets, Wind, Gauge, AlertTriangle,
-  RefreshCw, Info, ChevronRight, ArrowLeft, Search, MapPin,
-  Compass, Eye, ShieldAlert, Waves, CheckCircle2, CloudRain,
+  Cloud, Thermometer, Wind, AlertTriangle,
+  RefreshCw, ChevronRight, ArrowLeft, MapPin,
+  Compass, Waves, CloudRain,
   Sun, CloudLightning, Activity
 } from 'lucide-react';
-import { STATE_WEATHER_DATA, type StateWeatherSummary, type LocalityWeather, type LocalityType, type IMDAlertLevel } from '../data/weatherData';
-import { MOCK_THREATS } from '../data/mockData';
-import { SeverityBadge, LiveIndicator } from '../components/ui/Badge';
+import { STATE_WEATHER_DATA, type LocalityType, type IMDAlertLevel } from '../data/weatherData';
+import { LiveIndicator } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { SearchInput } from '../components/ui/Input';
 

@@ -1,183 +1,257 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, AlertTriangle, Radio, Map, Cloud, Zap, Package,
-  MessageSquare, BarChart3, Users, User, Settings, Shield, ChevronLeft,
-  ChevronRight, LogOut, X, Activity
+  MessageSquare, BarChart3, Users, Settings, Shield, ChevronLeft,
+  ChevronRight, LogOut, X, Activity, Compass, FlaskConical, Server,
+  Home, HeartPulse, Route, Bell, History, FileText
 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import { useAppStore } from '../../store/appStore';
 import { UserAvatar } from '../ui/Overlay';
-import { Badge } from '../ui/Badge';
 
-const NAV_ITEMS = [
-  { to: '/', icon: LayoutDashboard, label: 'nav.overview', roles: ['national_admin', 'state_admin', 'district_admin', 'responder'] },
-  { to: '/incidents', icon: AlertTriangle, label: 'nav.incidents', roles: ['national_admin', 'state_admin', 'district_admin', 'responder'] },
-  { to: '/operations', icon: Radio, label: 'nav.operations', roles: ['national_admin', 'state_admin', 'district_admin', 'responder'] },
-  { to: '/maps', icon: Map, label: 'nav.maps', roles: ['national_admin', 'state_admin', 'district_admin', 'responder'] },
-  { to: '/weather', icon: Cloud, label: 'nav.weather', roles: ['national_admin', 'state_admin', 'district_admin', 'responder'] },
-  { to: '/simulation', icon: Zap, label: 'nav.simulation', roles: ['national_admin', 'state_admin'] },
-  { to: '/resources', icon: Package, label: 'nav.resources', roles: ['national_admin', 'state_admin', 'district_admin', 'responder'] },
-  { to: '/communications', icon: MessageSquare, label: 'nav.communications', roles: ['national_admin', 'state_admin', 'district_admin', 'responder'] },
-  { to: '/analytics', icon: BarChart3, label: 'nav.analytics', roles: ['national_admin', 'state_admin'] },
-  { to: '/users', icon: Users, label: 'nav.users', roles: ['national_admin'] },
-];
+interface NavSection {
+  title: string;
+  items: {
+    to: string;
+    icon: React.ComponentType<{ size?: number; className?: string }>;
+    label: string;
+    roles?: string[]; // If undefined, all authority roles
+    badge?: string;
+  }[];
+}
 
-const BOTTOM_NAV_ITEMS = [
-  { to: '/profile', icon: User, label: 'nav.profile' },
-  { to: '/settings', icon: Settings, label: 'nav.settings' },
+const NAV_SECTIONS: NavSection[] = [
+  {
+    title: 'COMMAND',
+    items: [
+      { to: '/', icon: LayoutDashboard, label: 'Command Center' },
+      { to: '/operations', icon: Radio, label: 'Live Operations' },
+      { to: '/maps', icon: Map, label: 'Live Map' },
+    ],
+  },
+  {
+    title: 'INTELLIGENCE',
+    items: [
+      { to: '/incidents', icon: AlertTriangle, label: 'Incidents' },
+      { to: '/risk-intelligence', icon: Compass, label: 'Risk Intelligence' },
+      { to: '/weather', icon: Cloud, label: 'Weather' },
+      { to: '/earthquakes', icon: Activity, label: 'Earthquakes' },
+      { to: '/decision-support', icon: Compass, label: 'Decision Support' },
+    ],
+  },
+  {
+    title: 'RESPONSE',
+    items: [
+      { to: '/evacuation', icon: Route, label: 'Evacuation' },
+      { to: '/shelters', icon: Home, label: 'Shelters' },
+      { to: '/teams', icon: Shield, label: 'Response Teams' },
+      { to: '/resources', icon: Package, label: 'Resources' },
+      { to: '/hospitals', icon: HeartPulse, label: 'Hospitals' },
+    ],
+  },
+  {
+    title: 'COMMUNICATION',
+    items: [
+      { to: '/alerts', icon: Bell, label: 'Alerts' },
+      { to: '/communications', icon: MessageSquare, label: 'Communications' },
+      { to: '/citizen-reports', icon: FileText, label: 'Citizen Reports' },
+    ],
+  },
+  {
+    title: 'SIMULATION',
+    items: [
+      { to: '/simulation', icon: Zap, label: 'What-If Simulation' },
+      { to: '/disaster-replay', icon: History, label: 'Disaster Replay' },
+    ],
+  },
+  {
+    title: 'ANALYTICS',
+    items: [
+      { to: '/analytics', icon: BarChart3, label: 'Analytics' },
+      { to: '/research', icon: FlaskConical, label: 'Research' },
+    ],
+  },
+  {
+    title: 'SYSTEM',
+    items: [
+      { to: '/users', icon: Users, label: 'Users', roles: ['central_authority', 'national_admin', 'state_authority', 'state_admin'] },
+      { to: '/system-status', icon: Server, label: 'System Status' },
+      { to: '/settings', icon: Settings, label: 'Settings' },
+    ],
+  },
 ];
 
 interface SidebarContentProps { collapsed: boolean; onClose?: () => void; }
 
 const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onClose }) => {
-  const { t } = useTranslation();
-  const { currentUser, toggleSidebar, logout } = useAppStore();
+  const { currentUser, toggleSidebar, logout, activeJurisdiction } = useAppStore();
   const navigate = useNavigate();
 
-  const visibleItems = NAV_ITEMS.filter(
-    (item) => !currentUser || item.roles.includes(currentUser.role)
-  );
+  const isCitizen = currentUser?.role === 'citizen';
 
   return (
-    <div className="flex flex-col h-full bg-[#07111F] border-r border-white/8">
-      {/* Logo / Brand */}
-      <div className={`flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-4'} py-4 border-b border-white/8 flex-shrink-0`}>
+    <div className="flex flex-col h-full bg-[#07111F] border-r border-white/8 select-none">
+      {/* Brand Header */}
+      <div className={`flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3.5'} py-3.5 border-b border-white/8 flex-shrink-0`}>
         {!collapsed && (
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0 shadow-lg shadow-blue-500/20">
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/20">
               <Shield size={16} className="text-white" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold text-white leading-none tracking-wider">BRG</p>
-              <p className="text-xs text-slate-500 leading-none mt-0.5 truncate">Bharat Response Grid</p>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-black text-white tracking-widest leading-none">BRG</span>
+                <span className="text-[10px] text-cyan-400 font-mono font-bold tracking-tight">GRID</span>
+              </div>
+              <p className="text-[11px] text-slate-400 leading-tight mt-0.5 truncate">Bharat Response Grid</p>
             </div>
           </div>
         )}
         {collapsed && (
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-md shadow-blue-500/20">
             <Shield size={16} className="text-white" />
           </div>
         )}
         {onClose ? (
-          <button onClick={onClose} className="p-1 rounded text-slate-500 hover:text-slate-300 hover:bg-white/8">
+          <button onClick={onClose} className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-white/8">
             <X size={16} />
           </button>
         ) : !collapsed ? (
-          <button onClick={toggleSidebar} className="p-1 rounded text-slate-600 hover:text-slate-400 hover:bg-white/6 transition-colors" aria-label="Collapse sidebar">
+          <button onClick={toggleSidebar} className="p-1 rounded text-slate-500 hover:text-slate-300 hover:bg-white/6 transition-colors" aria-label="Collapse sidebar">
             <ChevronLeft size={16} />
           </button>
         ) : null}
       </div>
 
-      {/* Command Room */}
+      {/* Active Jurisdiction Scope Indicator */}
       {!collapsed && (
-        <div className="px-4 py-3 border-b border-white/6">
-          <div className="flex items-center gap-2">
-            <Activity size={12} className="text-green-400 flex-shrink-0" />
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider truncate">National Command</span>
+        <div className="px-3.5 py-2.5 border-b border-white/6 bg-[#0B1728]/80">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Scope</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-300 font-bold uppercase">
+              {activeJurisdiction?.level || 'NATIONAL'}
+            </span>
           </div>
+          <p className="text-xs font-semibold text-slate-200 truncate mt-0.5">
+            {activeJurisdiction?.shortLabel || 'INDIA'}
+          </p>
         </div>
       )}
 
-      {/* Main Navigation */}
-      <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto" aria-label="Main navigation">
-        {visibleItems.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-md transition-all duration-150 font-medium text-sm group relative
-              ${collapsed ? 'justify-center px-0 py-2.5 mx-auto w-10' : 'px-3 py-2'}
-              ${isActive
-                ? 'text-white bg-blue-500/15 border border-blue-500/25 shadow-sm'
-                : 'text-slate-400 hover:text-slate-100 hover:bg-white/5 border border-transparent'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <Icon size={16} className={`flex-shrink-0 ${isActive ? 'text-blue-400' : ''}`} />
-                {!collapsed && <span className="truncate">{t(label)}</span>}
-                {/* Tooltip for collapsed */}
-                {collapsed && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-[#1A2E48] border border-white/15 rounded text-xs text-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity shadow-lg">
-                    {t(label)}
-                  </div>
-                )}
-              </>
-            )}
-          </NavLink>
-        ))}
+      {/* Main Navigation (7 Hierarchical Categories) */}
+      <nav className="flex-1 px-2 py-3 space-y-4 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-slate-800" aria-label="Main navigation">
+        {NAV_SECTIONS.map((section) => {
+          // If citizen user, only show public safety sections
+          if (isCitizen && section.title !== 'COMMAND' && section.title !== 'INTELLIGENCE' && section.title !== 'COMMUNICATION') {
+            return null;
+          }
 
-        {/* Divider + Citizen Portal */}
-        <div className="pt-2 mt-2 border-t border-white/6">
+          const filteredItems = section.items.filter((item) => {
+            if (isCitizen) {
+              return ['/', '/weather', '/earthquakes', '/alerts', '/citizen-reports'].includes(item.to);
+            }
+            if (!item.roles) return true;
+            return item.roles.includes(currentUser?.role || '');
+          });
+
+          if (filteredItems.length === 0) return null;
+
+          return (
+            <div key={section.title} className="space-y-0.5">
+              {!collapsed && (
+                <div className="px-2 pb-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    {section.title}
+                  </span>
+                </div>
+              )}
+              {filteredItems.map(({ to, icon: Icon, label, badge }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={to === '/'}
+                  className={({ isActive }) =>
+                    `flex items-center gap-2.5 rounded-lg transition-all duration-150 font-medium text-xs group relative
+                    ${collapsed ? 'justify-center px-0 py-2 mx-auto w-10' : 'px-2.5 py-1.5'}
+                    ${isActive
+                      ? 'text-white bg-blue-600/20 border border-blue-500/30 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
+                    }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon size={15} className={`flex-shrink-0 ${isActive ? 'text-blue-400' : 'text-slate-400 group-hover:text-slate-200'}`} />
+                      {!collapsed && (
+                        <div className="flex items-center justify-between flex-1 min-w-0">
+                          <span className="truncate">{label}</span>
+                          {badge && (
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/15 text-blue-300 font-bold">
+                              {badge}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {collapsed && (
+                        <div className="absolute left-full ml-2 px-2 py-1 bg-[#132238] border border-white/15 rounded text-xs text-slate-200 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50 transition-opacity shadow-xl">
+                          {label}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          );
+        })}
+
+        {/* Public Citizen Portal quick transition */}
+        <div className="pt-2 border-t border-white/8">
           <NavLink
             to="/citizen"
             className={({ isActive }) =>
-              `flex items-center gap-3 rounded-md transition-all duration-150 font-medium text-sm
-              ${collapsed ? 'justify-center px-0 py-2.5 mx-auto w-10' : 'px-3 py-2'}
+              `flex items-center gap-2.5 rounded-lg transition-all text-xs font-semibold
+              ${collapsed ? 'justify-center px-0 py-2 mx-auto w-10' : 'px-2.5 py-2'}
               ${isActive
-                ? 'text-green-300 bg-green-500/10 border border-green-500/20'
-                : 'text-slate-500 hover:text-slate-300 hover:bg-white/5 border border-transparent'}`
+                ? 'text-emerald-300 bg-emerald-500/15 border border-emerald-500/30'
+                : 'text-emerald-400/90 hover:text-emerald-300 hover:bg-emerald-500/10 border border-emerald-500/20'}`
             }
           >
+            <Users size={15} className="flex-shrink-0 text-emerald-400" />
             {!collapsed && (
-              <>
-                <Users size={16} className="flex-shrink-0" />
-                <span className="truncate">{t('nav.citizen')}</span>
-                <Badge variant="success" size="xs" className="ml-auto">Portal</Badge>
-              </>
+              <div className="flex items-center justify-between flex-1 min-w-0">
+                <span className="truncate">Citizen Portal</span>
+                <span className="text-[9px] px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase tracking-wider">
+                  Public
+                </span>
+              </div>
             )}
-            {collapsed && <Users size={16} />}
+            {collapsed && (
+              <div className="absolute left-full ml-2 px-2 py-1 bg-[#132238] border border-white/15 rounded text-xs text-emerald-300 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-50 shadow-xl">
+                Citizen Safety Portal
+              </div>
+            )}
           </NavLink>
         </div>
       </nav>
 
-      {/* System Status */}
-      {!collapsed && (
-        <div className="mx-3 mb-2 px-3 py-2 rounded-md bg-green-500/6 border border-green-500/15">
-          <div className="flex items-center gap-2">
-            <span className="live-dot" />
-            <span className="text-xs text-green-400 font-medium">System Operational</span>
-          </div>
-          <p className="text-xs text-slate-600 mt-0.5">All nodes online · 47 responders</p>
-        </div>
-      )}
-
-      {/* Bottom Nav */}
-      <div className="px-2 py-2 border-t border-white/8 space-y-0.5">
-        {BOTTOM_NAV_ITEMS.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-md transition-all duration-150 text-sm font-medium
-              ${collapsed ? 'justify-center px-0 py-2.5 mx-auto w-10' : 'px-3 py-2'}
-              ${isActive
-                ? 'text-white bg-white/8 border border-white/12'
-                : 'text-slate-500 hover:text-slate-300 hover:bg-white/5 border border-transparent'}`
-            }
-          >
-            <Icon size={15} className="flex-shrink-0" />
-            {!collapsed && <span className="truncate">{t(label)}</span>}
-          </NavLink>
-        ))}
-
-        {/* User + Logout */}
+      {/* User profile & Sign Out at bottom */}
+      <div className="p-2 border-t border-white/8 bg-[#091424]">
         {!collapsed && currentUser && (
-          <div className="flex items-center gap-2 px-2 py-2 mt-1">
-            <UserAvatar initials={currentUser.avatarInitials} size="sm" online />
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-slate-300 truncate">{currentUser.name}</p>
-              <p className="text-xs text-slate-600 truncate capitalize">{currentUser.role.replace('_', ' ')}</p>
+          <div className="flex items-center justify-between gap-2 px-1 py-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <UserAvatar initials={currentUser.avatarInitials} size="sm" online />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-slate-200 truncate leading-tight">{currentUser.name}</p>
+                <p className="text-[10px] text-slate-400 truncate leading-tight capitalize mt-0.5">{currentUser.role.replace(/_/g, ' ')}</p>
+              </div>
             </div>
             <button
               onClick={() => { logout(); navigate('/login'); }}
               aria-label="Logout"
-              className="p-1.5 rounded text-slate-600 hover:text-red-400 hover:bg-red-500/8 transition-colors"
+              title="Sign Out"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
             >
               <LogOut size={14} />
             </button>
@@ -188,15 +262,13 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onClose }) =
   );
 };
 
-// ─── Sidebar Component ───
 export const Sidebar: React.FC = () => {
   const { sidebarCollapsed } = useAppStore();
 
   return (
     <>
-      {/* Desktop sidebar */}
       <motion.aside
-        animate={{ width: sidebarCollapsed ? 64 : 256 }}
+        animate={{ width: sidebarCollapsed ? 58 : 240 }}
         transition={{ type: 'spring', damping: 25, stiffness: 250 }}
         className="hidden lg:flex flex-col flex-shrink-0 overflow-hidden relative z-20"
         style={{ height: '100vh', position: 'sticky', top: 0 }}
@@ -204,11 +276,10 @@ export const Sidebar: React.FC = () => {
         <SidebarContent collapsed={sidebarCollapsed} />
       </motion.aside>
 
-      {/* Collapsed expand button */}
       {sidebarCollapsed && (
         <button
           onClick={() => useAppStore.getState().toggleSidebar()}
-          className="hidden lg:flex absolute left-14 top-[4.5rem] z-30 w-5 h-5 rounded-full bg-blue-600 items-center justify-center shadow-lg text-white hover:bg-blue-500 transition-colors"
+          className="hidden lg:flex absolute left-12 top-4 z-30 w-5 h-5 rounded-full bg-blue-600 items-center justify-center shadow-lg text-white hover:bg-blue-500 transition-colors"
           aria-label="Expand sidebar"
         >
           <ChevronRight size={12} />
@@ -218,7 +289,6 @@ export const Sidebar: React.FC = () => {
   );
 };
 
-// ─── Mobile Drawer Sidebar ───
 export const MobileSidebar: React.FC = () => {
   const { sidebarMobileOpen, setSidebarMobileOpen } = useAppStore();
 
@@ -230,7 +300,7 @@ export const MobileSidebar: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/60"
+            className="absolute inset-0 bg-black/60 backdrop-blur-xs"
             onClick={() => setSidebarMobileOpen(false)}
           />
           <motion.div

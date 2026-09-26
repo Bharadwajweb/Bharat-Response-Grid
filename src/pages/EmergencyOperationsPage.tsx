@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Radio, Target, Users, Clock, CheckCircle2, PlayCircle,
-  PauseCircle, XCircle, Plus, ShieldCheck, ChevronRight
+  PauseCircle, XCircle, Plus
 } from 'lucide-react';
 import { MOCK_MISSIONS, MOCK_TEAMS } from '../data/mockData';
 import { useIncidentStore } from '../store/incidentStore';

@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Package, Home, Truck, AlertTriangle, CheckCircle2, Users, Plus, Send
+  Package, Home, Users, Send
 } from 'lucide-react';
 import { MOCK_SHELTERS, MOCK_RESOURCES } from '../data/mockData';
-import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { ProgressBar } from '../components/ui/Card';
 import { Tabs, Modal } from '../components/ui/Modal';
 import { Input, Select } from '../components/ui/Input';
+import { fetchSheltersApi } from '../utils/api';
 import { brgSocket } from '../utils/socket';
 import type { Resource, Shelter } from '../types';
 
@@ -24,6 +24,18 @@ export const ResourceManagementPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('shelters');
   const [shelters, setShelters] = useState<Shelter[]>(MOCK_SHELTERS);
   const [resources, setResources] = useState<Resource[]>(MOCK_RESOURCES);
+
+  useEffect(() => {
+    fetchSheltersApi()
+      .then((res) => {
+        if (res.data && res.data.length > 0) {
+          setShelters(res.data);
+        }
+      })
+      .catch((err) => {
+        console.warn('Using local mock shelters fallback:', err);
+      });
+  }, []);
 
   // Dispatch Modal
   const [dispatchModalOpen, setDispatchModalOpen] = useState(false);
