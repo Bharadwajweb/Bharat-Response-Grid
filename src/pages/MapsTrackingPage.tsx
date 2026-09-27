@@ -384,6 +384,8 @@ export const MapsTrackingPage: React.FC = () => {
 
   // ─── Reset to India Handler ───
   const handleResetToIndia = () => {
+    setSelectedStateCode('');
+    setSelectedDistrictId('');
     if (mapInstanceRef.current) {
       mapInstanceRef.current.flyTo(INDIA_CENTER, INDIA_ZOOM, {
         duration: 1.2,
@@ -507,12 +509,15 @@ export const MapsTrackingPage: React.FC = () => {
       if (i.status === 'resolved') return false;
       if (currentUser?.stateAssigned && currentUser.commandLevel !== 'national' && i.location.state.toLowerCase() !== currentUser.stateAssigned.toLowerCase()) return false;
       if (currentUser?.districtAssigned && currentUser.commandLevel === 'district' && i.location.district.toLowerCase() !== currentUser.districtAssigned.toLowerCase()) return false;
+      if (selectedState && i.location.state.toLowerCase() !== selectedState.name.toLowerCase()) return false;
+      const selectedDistrict = districtsForSelectedState.find((district) => district.id === selectedDistrictId);
+      if (selectedDistrict && i.location.district.toLowerCase() !== selectedDistrict.name.toLowerCase()) return false;
       if (incidentStatus !== 'all' && i.status !== incidentStatus) return false;
       const query = incidentSearch.trim().toLowerCase();
       if (!query) return true;
       return `${i.id} ${i.title} ${i.location.state} ${i.location.district} ${i.location.area}`.toLowerCase().includes(query);
     }),
-    [incidents, incidentSearch, incidentStatus]
+    [incidents, incidentSearch, incidentStatus, currentUser, selectedState, selectedDistrictId, districtsForSelectedState]
   );
 
   const exportFilteredIncidents = useCallback(() => {
@@ -612,7 +617,9 @@ export const MapsTrackingPage: React.FC = () => {
               <option value="all">All active statuses</option>
               <option value="reported">Reported</option>
               <option value="verified">Verified</option>
-              <option value="in_progress">In progress</option>
+              <option value="responding">Responding</option>
+              <option value="evacuation">Evacuation</option>
+              <option value="assessed">Assessed</option>
             </select>
             <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
               <div className="rounded bg-red-500/10 px-1 py-1.5"><p className="text-sm font-black text-red-300">{activeIncidents.filter((i) => i.severity === 'critical').length}</p><p className="text-[9px] text-slate-500">Critical</p></div>
