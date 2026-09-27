@@ -16,8 +16,9 @@ async function startServer() {
   const HOST = '0.0.0.0';
 
   // Middlewares
-  app.use(cors());
-  app.use(express.json());
+  const allowedOrigin = process.env.CORS_ORIGIN;
+  app.use(cors({ origin: allowedOrigin || true, credentials: Boolean(allowedOrigin) }));
+  app.use(express.json({ limit: '256kb' }));
 
   // Mount API router
   app.use('/api', apiRouter);
@@ -25,21 +26,27 @@ async function startServer() {
   // Create HTTP server
   const server = http.createServer(app);
 
-  // Setup WebSocket on the same port at /ws
-  setupWebSocket(server);
-
   const isProduction = process.env.NODE_ENV === 'production';
 
   if (!isProduction) {
     // Vite Dev Server middleware mode
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true, host: HOST, port: PORT },
+      // The hosted preview proxy does not forward Vite's development HMR
+      // WebSocket, so allowing Vite to inject its client causes repeated
+      // "WebSocket closed without opened" errors. The app still reloads when
+      // the preview server restarts, and the application WebSocket remains
+      // available at /ws.
+      server: { middlewareMode: true, host: HOST, port: PORT, hmr: false },
       appType: 'spa',
     });
+    // Register the application socket after Vite has installed its HMR upgrade
+    // listener. The /ws-only guard then leaves Vite's upgrade path untouched.
+    setupWebSocket(server);
     app.use(vite.middlewares);
   } else {
     // Production static serving
+    setupWebSocket(server);
     const distPath = path.resolve(__dirname, 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {

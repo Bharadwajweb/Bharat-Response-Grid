@@ -260,9 +260,14 @@ export const CommandOverviewPage: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#07111F] text-slate-100">
+    <div className="brg-page flex flex-col min-h-screen text-slate-100">
       {/* ─── Command Center Header ─── */}
-      <div className="px-4 py-3 border-b border-white/8 bg-[#091526] sticky top-0 z-20">
+      <div className="brg-page-header px-4 sm:px-6 py-5 border-b sticky top-0 z-20">
+        <div className="mb-4">
+          <p className="brg-eyebrow">National operations picture</p>
+          <h1 className="brg-page-title">India Disaster Intelligence</h1>
+          <p className="brg-page-subtitle">National incident monitoring, geographic intelligence and response awareness.</p>
+        </div>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Left Title + Jurisdiction Scope Strip */}
           <div className="flex items-center gap-3 flex-wrap">

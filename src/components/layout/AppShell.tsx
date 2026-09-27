@@ -9,7 +9,7 @@ export const AppShell: React.FC = () => {
   const { connectionStatus, connectionBannerVisible, setConnectionStatus } = useAppStore();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#07111F]">
+    <div className="brg-shell flex h-screen overflow-hidden">
       {/* Connection banner */}
       <ConnectionBanner
         status={connectionStatus}

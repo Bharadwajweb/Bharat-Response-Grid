@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -17,6 +17,7 @@ import {
 import { useAppStore } from '../store/appStore';
 import { Button } from '../components/ui/Button';
 import { getSystemStatus, loginUser } from '../utils/api';
+import { INDIA_MASTER_GEOGRAPHY } from '../data/indiaGeographyMaster';
 
 const ROLE_PRESETS = [
   {
@@ -111,9 +112,27 @@ const ROLE_PRESETS = [
     commandLevel: 'district',
     avatarInitials: 'CZ',
   },
-];
+  ];
 
-export const LoginPage: React.FC = () => {
+  // Keep login coverage aligned with the national geography catalog instead of
+  // hard-coding only a few demo states on the login screen.
+const INDIA_GEOGRAPHY_PRESETS = INDIA_MASTER_GEOGRAPHY.map((state) => ({
+  roleName: state.name,
+  badge: state.type === 'union_territory' ? 'UT EOC' : 'SDMA',
+  name: `Demo ${state.name} ${state.type === 'union_territory' ? 'Administrator' : 'State Administrator'}`,
+  stateAdminName: `Demo ${state.name} ${state.type === 'union_territory' ? 'Administrator' : 'State Administrator'}`,
+  email: `${state.code.toLowerCase().replace('in-', '')}.state@demo.brg.local`,
+  role: 'state_authority' as const,
+  commandLevel: 'state' as const,
+  stateAssigned: state.name,
+  avatarInitials: state.code.replace('IN-', ''),
+  districtCount: state.districts.length || state.totalOfficialDistricts,
+}));
+
+const ALL_LOGIN_PRESETS = [...ROLE_PRESETS, ...INDIA_GEOGRAPHY_PRESETS];
+type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
+  
+  export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { setAuthenticated, setCurrentUser } = useAppStore();
 
@@ -123,6 +142,18 @@ export const LoginPage: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [selectedStateName, setSelectedStateName] = useState('');
+  const [selectedDistrictName, setSelectedDistrictName] = useState('');
+
+  const selectedState = INDIA_MASTER_GEOGRAPHY.find((state) => state.name === selectedStateName);
+  const selectedStatePreset = INDIA_GEOGRAPHY_PRESETS.find((preset) => preset.stateAssigned === selectedStateName);
+
+  const selectState = (stateName: string) => {
+    setSelectedStateName(stateName);
+    setSelectedDistrictName('');
+    const preset = INDIA_GEOGRAPHY_PRESETS.find((item) => item.stateAssigned === stateName);
+    if (preset) selectPreset(preset);
+  };
 
   // Real System Status
   const [systemStatus, setSystemStatus] = useState<any>(null);
@@ -150,7 +181,7 @@ export const LoginPage: React.FC = () => {
     } catch (err: unknown) {
       console.warn('Backend login fallback to local role preset:', err);
       // Fallback local matching
-      const preset = ROLE_PRESETS.find((p) => p.email.toLowerCase() === email.toLowerCase());
+      const preset = ALL_LOGIN_PRESETS.find((p) => p.email.toLowerCase() === email.toLowerCase());
       if (preset) {
         setCurrentUser({
           id: `USR-${preset.avatarInitials}`,
@@ -166,35 +197,79 @@ export const LoginPage: React.FC = () => {
         });
         setAuthenticated(true);
         navigate('/');
-      } else if (email && password) {
-        setCurrentUser({
-          id: `USR-${Date.now().toString().slice(-4)}`,
-          name: email.split('@')[0],
-          email,
-          role: 'national_admin',
-          commandLevel: 'national',
-          avatarInitials: 'GO',
-          status: 'active',
-          lastActive: 'Just now',
-        });
-        setAuthenticated(true);
-        navigate('/');
       } else {
-        setError('Please enter valid official emergency command credentials.');
+        setError('Use one of the listed demo roles or enter valid official emergency command credentials.');
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const selectPreset = (preset: (typeof ROLE_PRESETS)[0]) => {
+  const loginStageRef = useRef<HTMLDivElement>(null);
+  const motionFrameRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const stage = loginStageRef.current;
+    if (!stage) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (motionFrameRef.current) cancelAnimationFrame(motionFrameRef.current);
+      motionFrameRef.current = requestAnimationFrame(() => {
+        const x = event.clientX / window.innerWidth - 0.5;
+        const y = event.clientY / window.innerHeight - 0.5;
+        stage.style.setProperty('--pointer-x', `${x * 34}px`);
+        stage.style.setProperty('--pointer-y', `${y * 34}px`);
+        stage.style.setProperty('--pointer-glow-x', `${50 + x * 18}%`);
+        stage.style.setProperty('--pointer-glow-y', `${46 + y * 18}%`);
+      });
+    };
+
+    const resetPointer = () => {
+      stage.style.setProperty('--pointer-x', '0px');
+      stage.style.setProperty('--pointer-y', '0px');
+      stage.style.setProperty('--pointer-glow-x', '50%');
+      stage.style.setProperty('--pointer-glow-y', '46%');
+    };
+
+    const magneticItems = Array.from(stage.querySelectorAll<HTMLElement>('[data-magnetic]'));
+    const magneticHandlers = magneticItems.map((item) => {
+      const move = (event: PointerEvent) => {
+        const bounds = item.getBoundingClientRect();
+        const x = (event.clientX - bounds.left - bounds.width / 2) / bounds.width;
+        const y = (event.clientY - bounds.top - bounds.height / 2) / bounds.height;
+        item.style.setProperty('--magnetic-x', `${x * 16}px`);
+        item.style.setProperty('--magnetic-y', `${y * 12}px`);
+      };
+      const leave = () => {
+        item.style.setProperty('--magnetic-x', '0px');
+        item.style.setProperty('--magnetic-y', '0px');
+      };
+      item.addEventListener('pointermove', move, { passive: true });
+      item.addEventListener('pointerleave', leave);
+      return { item, move, leave };
+    });
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    window.addEventListener('pointerleave', resetPointer);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerleave', resetPointer);
+      magneticHandlers.forEach(({ item, move, leave }) => {
+        item.removeEventListener('pointermove', move);
+        item.removeEventListener('pointerleave', leave);
+      });
+      if (motionFrameRef.current) cancelAnimationFrame(motionFrameRef.current);
+    };
+  }, []);
+
+  const selectPreset = (preset: LoginPreset) => {
     setEmail(preset.email);
     setPassword('admin123');
     setError('');
   };
 
   return (
-    <div className="min-h-screen bg-[#060D17] text-slate-100 flex flex-col justify-between relative overflow-hidden select-none">
+    <div ref={loginStageRef} className="brg-login min-h-screen bg-[#1A1D20] text-slate-100 flex flex-col justify-between relative overflow-hidden select-none">
       {/* ─── Sophisticated GIS Cartographic Background & Grid Network ─── */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {/* Subtle Latitude/Longitude GIS grid lines */}
@@ -202,16 +277,16 @@ export const LoginPage: React.FC = () => {
           className="absolute inset-0 opacity-[0.035]"
           style={{
             backgroundImage: `
-              linear-gradient(rgba(56, 189, 248, 0.4) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(56, 189, 248, 0.4) 1px, transparent 1px)
+              linear-gradient(rgba(216, 180, 254, 0.28) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(216, 180, 254, 0.28) 1px, transparent 1px)
             `,
             backgroundSize: '48px 48px',
           }}
         />
 
         {/* Ambient Dark Navy & Indigo Radial Glows */}
-        <div className="absolute -top-40 -left-40 w-[650px] h-[650px] rounded-full bg-blue-900/15 blur-[120px]" />
-        <div className="absolute -bottom-40 right-0 w-[700px] h-[700px] rounded-full bg-cyan-950/15 blur-[140px]" />
+        <div className="absolute -top-40 -left-40 w-[650px] h-[650px] rounded-full bg-emerald-900/10 blur-[120px]" />
+        <div className="absolute -bottom-40 right-0 w-[700px] h-[700px] rounded-full bg-purple-950/20 blur-[140px]" />
 
         {/* SVG Atmospheric Isobars & Geographic Network Telemetry */}
         <svg
@@ -221,21 +296,21 @@ export const LoginPage: React.FC = () => {
         >
           <defs>
             <radialGradient id="cycloneIsobar" cx="72%" cy="65%" r="35%">
-              <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.35" />
-              <stop offset="40%" stopColor="#0284C7" stopOpacity="0.15" />
-              <stop offset="100%" stopColor="#0F172A" stopOpacity="0" />
+              <stop offset="0%" stopColor="#D8B4FE" stopOpacity="0.35" />
+              <stop offset="40%" stopColor="#A855F7" stopOpacity="0.15" />
+              <stop offset="100%" stopColor="#09090B" stopOpacity="0" />
             </radialGradient>
             <linearGradient id="gridLineFade" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.4" />
-              <stop offset="50%" stopColor="#6366F1" stopOpacity="0.2" />
-              <stop offset="100%" stopColor="#0F172A" stopOpacity="0" />
+              <stop offset="0%" stopColor="#D8B4FE" stopOpacity="0.4" />
+              <stop offset="50%" stopColor="#C084FC" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#09090B" stopOpacity="0" />
             </linearGradient>
           </defs>
 
           {/* Bay of Bengal & Arabian Sea Isobar Rings */}
-          <circle cx="72%" cy="68%" r="180" fill="none" stroke="#38BDF8" strokeWidth="1" strokeDasharray="4 6" opacity="0.6" />
-          <circle cx="72%" cy="68%" r="280" fill="none" stroke="#38BDF8" strokeWidth="1" strokeDasharray="2 8" opacity="0.4" />
-          <circle cx="72%" cy="68%" r="420" fill="none" stroke="#38BDF8" strokeWidth="0.8" opacity="0.25" />
+          <circle cx="72%" cy="68%" r="180" fill="none" stroke="#D8B4FE" strokeWidth="1" strokeDasharray="4 6" opacity="0.6" />
+          <circle cx="72%" cy="68%" r="280" fill="none" stroke="#D8B4FE" strokeWidth="1" strokeDasharray="2 8" opacity="0.4" />
+          <circle cx="72%" cy="68%" r="420" fill="none" stroke="#D8B4FE" strokeWidth="0.8" opacity="0.25" />
 
           {/* Telemetry Vectors Connecting Strategic Nodes (Delhi -> Chennai -> Vizag -> Dehradun) */}
           <line x1="38%" y1="28%" x2="45%" y2="76%" stroke="url(#gridLineFade)" strokeWidth="1" strokeDasharray="6 4" />
@@ -244,17 +319,17 @@ export const LoginPage: React.FC = () => {
           <line x1="38%" y1="28%" x2="42%" y2="18%" stroke="url(#gridLineFade)" strokeWidth="1" strokeDasharray="3 3" />
 
           {/* Node Rings */}
-          <circle cx="38%" cy="28%" r="5" fill="#38BDF8" opacity="0.8" />
+          <circle cx="38%" cy="28%" r="5" fill="#D8B4FE" opacity="0.8" />
           <circle cx="45%" cy="76%" r="5" fill="#10B981" opacity="0.8" />
           <circle cx="58%" cy="62%" r="5" fill="#F59E0B" opacity="0.8" />
-          <circle cx="42%" cy="18%" r="4" fill="#6366F1" opacity="0.8" />
+          <circle cx="42%" cy="18%" r="4" fill="#C084FC" opacity="0.8" />
         </svg>
       </div>
 
       {/* ─── Top Header Bar ─── */}
       <header className="px-6 py-4 border-b border-white/8 flex items-center justify-between z-10 backdrop-blur-md bg-[#060D17]/70">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-blue-500/20 border border-blue-400/30">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-fuchsia-300 to-purple-500 flex items-center justify-center shadow-lg shadow-purple-500/30 border border-purple-200/30">
             <Shield size={20} className="text-white" />
           </div>
           <div>
@@ -262,7 +337,7 @@ export const LoginPage: React.FC = () => {
               <span className="text-xs font-black tracking-widest text-white uppercase">
                 BRG · BHARAT RESPONSE GRID
               </span>
-              <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 border border-blue-500/30 text-blue-300">
+              <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/12 border border-emerald-400/30 text-emerald-300">
                 GOVT OF INDIA
               </span>
             </div>
@@ -283,7 +358,7 @@ export const LoginPage: React.FC = () => {
 
           <button
             onClick={() => navigate('/citizen')}
-            className="text-xs px-3.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 transition-all flex items-center gap-2 font-semibold shadow-sm"
+            data-magnetic className="brg-magnetic text-xs px-3.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 transition-all flex items-center gap-2 font-semibold shadow-sm"
           >
             <Users size={14} />
             <span>Public Citizen Portal →</span>
@@ -297,13 +372,13 @@ export const LoginPage: React.FC = () => {
           {/* Left Column: Visual Identity, GIS Telemetry Atmosphere */}
           <div className="lg:col-span-6 space-y-6 hidden lg:block">
             <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/25 text-blue-400 text-xs font-bold tracking-widest uppercase">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-400/25 text-teal-300 text-xs font-bold tracking-widest uppercase">
                 <Radio size={13} className="animate-pulse text-cyan-400" />
                 <span>Inter-Agency National Command Node</span>
               </div>
               <h1 className="text-4xl font-black tracking-tight text-white leading-tight">
                 BHARAT <br />
-                <span className="bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-300 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-emerald-300 via-teal-200 to-slate-200 bg-clip-text text-transparent">
                   RESPONSE GRID
                 </span>
               </h1>
@@ -326,7 +401,7 @@ export const LoginPage: React.FC = () => {
               </div>
 
               <div className="p-3.5 rounded-xl bg-[#0C1626]/90 border border-white/8 backdrop-blur-md">
-                <div className="flex items-center gap-2 text-blue-400 mb-1">
+                <div className="flex items-center gap-2 text-teal-300 mb-1">
                   <Cpu size={15} />
                   <span className="text-xs font-bold uppercase tracking-wider">Dynamic Routing</span>
                 </div>
@@ -355,7 +430,7 @@ export const LoginPage: React.FC = () => {
                 </div>
                 <div className="bg-[#07111F] p-2 rounded-lg border border-white/5">
                   <span className="text-[10px] text-slate-500 block">OSM GIS</span>
-                  <span className="text-xs font-bold text-blue-400">Active</span>
+                  <span className="text-xs font-bold text-teal-300">Active</span>
                 </div>
               </div>
             </div>
@@ -367,12 +442,12 @@ export const LoginPage: React.FC = () => {
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35 }}
-              className="w-full max-w-md bg-[#0A1322] border border-white/12 rounded-2xl shadow-2xl p-6 sm:p-7 space-y-5 backdrop-blur-xl"
+              data-magnetic className="brg-magnetic w-full max-w-md bg-[#0A1322] border border-white/12 rounded-2xl shadow-2xl p-6 sm:p-7 space-y-5 backdrop-blur-xl"
             >
               {/* Card Header */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow shadow-blue-500/30">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shadow shadow-blue-500/30">
                     <Shield size={16} className="text-white" />
                   </div>
                   <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold tracking-wider uppercase">
@@ -434,39 +509,45 @@ export const LoginPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Quick Role Authentication Presets */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
-                    Role Presets
-                  </span>
-                  <span className="text-[10px] text-slate-500">Tap to populate</span>
+              {/* Cascading geography selection: state first, then district. */}
+              <div className="rounded-xl border border-white/10 bg-[#0E1B2E]/60 p-3">
+                <div className="mb-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-300">Select command geography</p>
+                  <p className="mt-1 text-[10px] text-slate-500">Choose a state or union territory to load its districts.</p>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {ROLE_PRESETS.map((p, idx) => {
-                    const isSelected = email.toLowerCase() === p.email.toLowerCase();
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => selectPreset(p)}
-                        className={`p-2 rounded-lg border text-left transition-all ${
-                          isSelected
-                            ? 'bg-blue-600/20 border-blue-500 text-white shadow-sm'
-                            : 'bg-[#0E1B2E]/70 border-white/6 hover:bg-[#0E1B2E] text-slate-300 hover:border-white/15'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-xs font-bold text-white mb-0.5">
-                          <span>{p.roleName}</span>
-                          <span className="text-[9px] px-1 py-0.2 rounded bg-blue-500/20 text-blue-300 font-mono">
-                            {p.avatarInitials}
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-slate-400 block truncate">{p.name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <label className="block text-[10px] font-semibold text-slate-400">
+                  State / Union Territory
+                  <select
+                    value={selectedStateName}
+                    onChange={(event) => selectState(event.target.value)}
+                    className="brg-dark-select mt-1 w-full rounded-lg border border-white/10 bg-[#060D17] px-3 py-2 text-xs text-slate-100 outline-none focus:border-teal-400"
+                  >
+                    <option value="">Select a state or UT</option>
+                    {INDIA_MASTER_GEOGRAPHY.map((state) => (
+                      <option key={state.code} value={state.name}>{state.name}</option>
+                    ))}
+                  </select>
+                </label>
+                {selectedState && (
+                  <label className="mt-3 block text-[10px] font-semibold text-slate-400">
+                    District
+                    <select
+                      value={selectedDistrictName}
+                      onChange={(event) => setSelectedDistrictName(event.target.value)}
+                      className="brg-dark-select mt-1 w-full rounded-lg border border-white/10 bg-[#060D17] px-3 py-2 text-xs text-slate-100 outline-none focus:border-teal-400"
+                    >
+                      <option value="">All districts in {selectedState?.name}</option>
+                      {selectedState.districts.map((district) => (
+                        <option key={district.id} value={district.name}>{district.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {selectedStatePreset && (
+                  <p className="mt-2 text-[10px] text-cyan-300/80">
+                    {selectedDistrictName || selectedStateName} access selected · {selectedStatePreset.name}
+                  </p>
+                )}
               </div>
 
               {/* Login Form */}
@@ -490,7 +571,7 @@ export const LoginPage: React.FC = () => {
                       onChange={(e) => setEmail(e.target.value)}
                       required
                       placeholder="officer@ndma.gov.in"
-                      className="w-full bg-[#060D17] border border-white/12 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="w-full bg-[#060D17] border border-white/12 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-400"
                     />
                   </div>
                 </div>
@@ -507,7 +588,7 @@ export const LoginPage: React.FC = () => {
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       placeholder="••••••••"
-                      className="w-full bg-[#060D17] border border-white/12 rounded-lg pl-9 pr-10 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="w-full bg-[#060D17] border border-white/12 rounded-lg pl-9 pr-10 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-400"
                     />
                     <button
                       type="button"
@@ -538,7 +619,7 @@ export const LoginPage: React.FC = () => {
                   variant="primary"
                   size="md"
                   disabled={loading}
-                  className="w-full bg-blue-600 hover:bg-blue-500 text-xs font-bold py-2.5 shadow-lg shadow-blue-600/30 transition-all"
+                  className="w-full bg-emerald-500 hover:bg-blue-500 text-xs font-bold py-2.5 shadow-lg shadow-blue-600/30 transition-all"
                   icon={<ArrowRight size={15} />}
                 >
                   {loading ? 'Authenticating Command Grid...' : 'Sign In to Command Center'}

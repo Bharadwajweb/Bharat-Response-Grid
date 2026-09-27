@@ -25,16 +25,16 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'COMMAND',
     items: [
-      { to: '/', icon: LayoutDashboard, label: 'Command Center' },
-      { to: '/operations', icon: Radio, label: 'Live Operations' },
-      { to: '/maps', icon: Map, label: 'Live Map' },
+      { to: '/', icon: LayoutDashboard, label: 'Command Overview' },
+      { to: '/operations', icon: Radio, label: 'Response Operations' },
+      { to: '/maps', icon: Map, label: 'India GIS' },
     ],
   },
   {
     title: 'INTELLIGENCE',
     items: [
-      { to: '/incidents', icon: AlertTriangle, label: 'Incidents' },
-      { to: '/risk-intelligence', icon: Compass, label: 'Risk Intelligence' },
+      { to: '/incidents', icon: AlertTriangle, label: 'Live Incidents' },
+      { to: '/risk-intelligence', icon: Compass, label: 'Risk & Analytics' },
       { to: '/weather', icon: Cloud, label: 'Weather' },
       { to: '/earthquakes', icon: Activity, label: 'Earthquakes' },
       { to: '/decision-support', icon: Compass, label: 'Decision Support' },
@@ -68,8 +68,8 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'ANALYTICS',
     items: [
-      { to: '/analytics', icon: BarChart3, label: 'Analytics' },
-      { to: '/research', icon: FlaskConical, label: 'Research' },
+      { to: '/analytics', icon: BarChart3, label: 'Risk & Analytics' },
+      { to: '/research', icon: FlaskConical, label: 'Reports & Export' },
     ],
   },
   {
@@ -91,12 +91,12 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onClose }) =
   const isCitizen = currentUser?.role === 'citizen';
 
   return (
-    <div className="flex flex-col h-full bg-[#07111F] border-r border-white/8 select-none">
+    <div className="brg-sidebar flex flex-col h-full border-r select-none">
       {/* Brand Header */}
       <div className={`flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3.5'} py-3.5 border-b border-white/8 flex-shrink-0`}>
         {!collapsed && (
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/20">
+            <div className="brg-brand-mark w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0">
               <Shield size={16} className="text-white" />
             </div>
             <div className="min-w-0">

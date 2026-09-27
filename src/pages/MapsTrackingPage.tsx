@@ -28,12 +28,17 @@ import {
   HeartPulse,
   Building,
   RefreshCw,
+  Search,
+  Download,
 } from 'lucide-react';
 import { useIncidentStore } from '../store/incidentStore';
+import { useAppStore } from '../store/appStore';
 import { SeverityBadge, StatusBadge, TypeBadge } from '../components/ui/Badge';
 import { ProgressBar } from '../components/ui/Card';
 import { brgSocket } from '../utils/socket';
 import type { Incident, Shelter, Team, Resource, Severity } from '../types';
+import { getAllStatesAndUTs, getDistrictsForState, getGeographyCoverageSummary } from '../data/indiaGeographyMaster';
+import { filterIncidents, hasValidIncidentCoordinates, INCIDENT_SEVERITIES, INCIDENT_STATUSES } from '../data/incidentValidation';
 
 // ─── Initial Map View Configuration ───
 const INDIA_CENTER: [number, number] = [20.5937, 78.9629];
@@ -89,16 +94,28 @@ const WEATHER_ICON = createDivIcon('⛅', '#0284C7');
 // ─── Floating In-Map Controls Component ───
 interface MapControlsProps {
   onResetIndia: () => void;
-  onFocusRegion: (coords: [number, number], zoom: number) => void;
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
+  statesAndUTs: ReturnType<typeof getAllStatesAndUTs>;
+  selectedStateCode: string;
+  selectedState: ReturnType<typeof getAllStatesAndUTs>[number] | undefined;
+  selectedDistrictId: string;
+  districtsForSelectedState: ReturnType<typeof getDistrictsForState>;
+  onStateChange: (code: string) => void;
+  onDistrictChange: (districtId: string) => void;
 }
 
 const InMapControls: React.FC<MapControlsProps> = ({
   onResetIndia,
-  onFocusRegion,
   isFullscreen,
   onToggleFullscreen,
+  statesAndUTs,
+  selectedStateCode,
+  selectedState,
+  selectedDistrictId,
+  districtsForSelectedState,
+  onStateChange,
+  onDistrictChange,
 }) => {
   const map = useMap();
 
@@ -115,27 +132,36 @@ const InMapControls: React.FC<MapControlsProps> = ({
             <span className="text-sm">🇮🇳</span>
             <span>All India</span>
           </button>
-          <button
-            onClick={() => onFocusRegion([17.75, 83.35], 11)}
-            title="Zoom to Visakhapatnam Cyclone Sector"
-            className="px-3 py-1.5 text-left text-slate-300 hover:text-white hover:bg-white/10 text-[11px] font-medium border-b border-white/10 transition-colors"
-          >
-            🌀 Vizag Sector
-          </button>
-          <button
-            onClick={() => onFocusRegion([13.018, 80.228], 13)}
-            title="Zoom to Chennai Adyar Flood Sector"
-            className="px-3 py-1.5 text-left text-slate-300 hover:text-white hover:bg-white/10 text-[11px] font-medium border-b border-white/10 transition-colors"
-          >
-            🌊 Chennai Flood
-          </button>
-          <button
-            onClick={() => onFocusRegion([30.556, 79.567], 11)}
-            title="Zoom to Chamoli Landslide Corridor"
-            className="px-3 py-1.5 text-left text-slate-300 hover:text-white hover:bg-white/10 text-[11px] font-medium transition-colors"
-          >
-            ⛰️ Chamoli Slide
-          </button>
+          <div className="border-b border-white/10 p-2 space-y-1.5">
+            <label className="sr-only" htmlFor="map-state">State or Union Territory</label>
+            <select
+              id="map-state"
+              value={selectedStateCode}
+              onChange={(event) => onStateChange(event.target.value)}
+              className="w-full rounded border border-white/15 bg-[#0D1828] px-2 py-1.5 text-[11px] text-slate-200 outline-none focus:border-cyan-400"
+            >
+              <option value="">Select state / UT</option>
+              {statesAndUTs.map((state) => (
+                <option key={state.code} value={state.code}>{state.name}</option>
+              ))}
+            </select>
+            <label className="sr-only" htmlFor="map-district">District</label>
+            <select
+              id="map-district"
+              value={selectedDistrictId}
+              onChange={(event) => onDistrictChange(event.target.value)}
+              disabled={!selectedState}
+              className="w-full rounded border border-white/15 bg-[#0D1828] px-2 py-1.5 text-[11px] text-slate-200 outline-none disabled:cursor-not-allowed disabled:opacity-50 focus:border-cyan-400"
+            >
+              <option value="">Select district</option>
+              {districtsForSelectedState.map((district) => (
+                <option key={district.id} value={district.id}>{district.name}</option>
+              ))}
+            </select>
+            {selectedState?.datasetStatus === 'VERIFIED_PARTIAL' && (
+              <p className="text-[10px] leading-snug text-amber-300">GEOGRAPHIC DATASET INCOMPLETE</p>
+            )}
+          </div>
         </div>
 
         {/* Zoom In & Out */}
@@ -199,6 +225,7 @@ interface Selection {
 
 export const MapsTrackingPage: React.FC = () => {
   const { incidents, addIncident, updateIncident } = useIncidentStore();
+  const { currentUser } = useAppStore();
 
   // Operational GIS Entities State
   const [shelters, setShelters] = useState<Shelter[]>([]);
@@ -223,6 +250,63 @@ export const MapsTrackingPage: React.FC = () => {
 
   // Map Tile Style: OSM Standard, Dark, or Satellite Topo
   const [tileProvider, setTileProvider] = useState<'osm' | 'dark' | 'satellite'>('osm');
+  const [selectedStateCode, setSelectedStateCode] = useState('');
+  const [selectedDistrictId, setSelectedDistrictId] = useState('');
+  const [incidentSearch, setIncidentSearch] = useState('');
+  const [incidentStatus, setIncidentStatus] = useState('all');
+  const [incidentSeverity, setIncidentSeverity] = useState('all');
+  const allStatesAndUTs = getAllStatesAndUTs();
+  const permittedStatesAndUTs = useMemo(() => {
+    if (!currentUser?.stateAssigned || currentUser.commandLevel === 'national') return allStatesAndUTs;
+    return allStatesAndUTs.filter((state) => state.name.toLowerCase() === currentUser.stateAssigned?.toLowerCase());
+  }, [allStatesAndUTs, currentUser?.commandLevel, currentUser?.stateAssigned]);
+  const statesAndUTs = permittedStatesAndUTs;
+  const selectedState = statesAndUTs.find((state) => state.code === selectedStateCode);
+  const districtsForSelectedState = useMemo(() => selectedState
+    ? getDistrictsForState(selectedState.code).filter((district) => !currentUser?.districtAssigned || currentUser.commandLevel !== 'district' || district.name.toLowerCase() === currentUser.districtAssigned.toLowerCase())
+    : [], [selectedState, currentUser?.commandLevel, currentUser?.districtAssigned]);
+  const geographyCoverage = useMemo(() => getGeographyCoverageSummary(), []);
+  const geographyCoveragePercent = Math.round((geographyCoverage.loadedDistricts / geographyCoverage.officialDistricts) * 100);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const stateFromUrl = params.get('state') || '';
+    const districtFromUrl = params.get('district') || '';
+    if (statesAndUTs.some((state) => state.code === stateFromUrl)) setSelectedStateCode(stateFromUrl);
+    if (districtFromUrl) setSelectedDistrictId(districtFromUrl);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedStateCode) {
+      if (selectedDistrictId) setSelectedDistrictId('');
+      return;
+    }
+    if (selectedDistrictId && !districtsForSelectedState.some((district) => district.id === selectedDistrictId)) {
+      setSelectedDistrictId('');
+    }
+  }, [selectedStateCode, selectedDistrictId, districtsForSelectedState]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (selectedStateCode) params.set('state', selectedStateCode); else params.delete('state');
+    if (selectedDistrictId) params.set('district', selectedDistrictId); else params.delete('district');
+    window.history.replaceState(null, '', `${window.location.pathname}${params.toString() ? `?${params}` : ''}`);
+  }, [selectedStateCode, selectedDistrictId]);
+
+  const exportGeographyCoverage = useCallback(() => {
+    const rows = [['state_or_ut', 'type', 'official_districts', 'loaded_districts', 'coverage_percent']];
+    statesAndUTs.forEach((state) => {
+      const loaded = getDistrictsForState(state.code).length;
+      rows.push([state.name, state.type, String(state.totalOfficialDistricts), String(loaded), String(Math.round((loaded / state.totalOfficialDistricts) * 100))]);
+    });
+    const csv = rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(',')).join('\\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'bharat-response-grid-geography-coverage.csv';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }, [statesAndUTs]);
 
   // Grouped Layer Visibility Controls
   const [layerGroups, setLayerGroups] = useState({
@@ -312,6 +396,8 @@ export const MapsTrackingPage: React.FC = () => {
 
   // ─── Reset to India Handler ───
   const handleResetToIndia = () => {
+    setSelectedStateCode('');
+    setSelectedDistrictId('');
     if (mapInstanceRef.current) {
       mapInstanceRef.current.flyTo(INDIA_CENTER, INDIA_ZOOM, {
         duration: 1.2,
@@ -327,6 +413,19 @@ export const MapsTrackingPage: React.FC = () => {
         duration: 1.0,
       });
     }
+  };
+
+  const handleStateChange = (code: string) => {
+    setSelectedStateCode(code);
+    setSelectedDistrictId('');
+    const state = statesAndUTs.find((item) => item.code === code);
+    if (state) handleFocusRegion(state.center, state.zoom);
+  };
+
+  const handleDistrictChange = (districtId: string) => {
+    setSelectedDistrictId(districtId);
+    const district = districtsForSelectedState.find((item) => item.id === districtId);
+    if (district) handleFocusRegion(district.center, district.zoom);
   };
 
   // ─── Fullscreen Toggle ───
@@ -417,21 +516,63 @@ export const MapsTrackingPage: React.FC = () => {
   }, [addIncident, updateIncident]);
 
   // Derived filtered active incidents
-  const activeIncidents = useMemo(
-    () => incidents.filter((i) => i.status !== 'resolved'),
-    [incidents]
-  );
+  const activeIncidents = useMemo(() => {
+    const selectedDistrict = districtsForSelectedState.find((district) => district.id === selectedDistrictId);
+    return filterIncidents(incidents, {
+      state: selectedState?.name || (currentUser?.commandLevel !== 'national' ? currentUser?.stateAssigned : undefined),
+      district: selectedDistrict?.name || (currentUser?.commandLevel === 'district' ? currentUser.districtAssigned : undefined),
+      status: incidentStatus,
+      severity: incidentSeverity,
+      search: incidentSearch,
+    }).filter((incident) => incident.status !== 'resolved' && incident.status !== 'closed');
+  }, [incidents, incidentSearch, incidentStatus, incidentSeverity, currentUser, selectedState, selectedDistrictId, districtsForSelectedState]);
+
+  const exportFilteredIncidents = useCallback(() => {
+    const rows = [['id', 'title', 'state', 'district', 'area', 'severity', 'status']];
+    activeIncidents.forEach((incident) => rows.push([
+      incident.id,
+      incident.title,
+      incident.location.state,
+      incident.location.district,
+      incident.location.area,
+      incident.severity,
+      incident.status,
+    ]));
+    const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'brg-filtered-incidents.csv';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }, [activeIncidents]);
 
   return (
     <div
       ref={mapContainerRef}
-      className="flex h-full w-full relative bg-[#060D17] text-slate-100 overflow-hidden select-none"
+      className="brg-gis flex h-full w-full relative text-slate-100 overflow-hidden select-none"
       style={{ height: isFullscreen ? '100vh' : 'calc(100vh - 56px)' }}
     >
+      {/* India-first emergency operations context */}
+      <div className="brg-gis-banner absolute inset-x-0 top-0 z-[1100] pointer-events-none px-3 py-2 sm:px-4">
+        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="flex size-2 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" aria-hidden="true" />
+            <span className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-white sm:text-xs">BRG · India Live GIS</span>
+            <span className="hidden text-[10px] text-slate-400 sm:inline">Decision support workspace</span>
+          </div>
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider">
+            <span className="rounded border border-emerald-400/25 bg-emerald-400/10 px-2 py-1 text-emerald-300">{isSimulationMode ? 'Simulation' : 'Live feed'}</span>
+            <span className="rounded border border-cyan-400/25 bg-cyan-400/10 px-2 py-1 text-cyan-200">{selectedState?.name || 'All India'}</span>
+            {selectedDistrictId && <span className="hidden rounded border border-white/15 bg-white/5 px-2 py-1 text-slate-300 sm:inline">District drill-down</span>}
+          </div>
+        </div>
+      </div>
+
       {/* ─── Operational GIS Command Layer Control (Left Top) ─── */}
-      <div className="absolute top-3 left-3 z-[1000] flex flex-col gap-2 pointer-events-auto">
+      <div className="absolute top-16 left-3 z-[1000] flex flex-col gap-2 pointer-events-auto">
         {/* Layer Panel */}
-        <div className="bg-[#07111F]/95 border border-white/15 rounded-xl shadow-2xl backdrop-blur-md p-2.5 flex flex-col gap-2 w-60 sm:w-64 max-h-[calc(100vh-140px)] overflow-y-auto">
+        <div className="brg-gis-panel p-2.5 flex flex-col gap-2 w-60 sm:w-64 max-h-[calc(100vh-140px)] overflow-y-auto">
           {/* Header */}
           <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
             <div className="flex items-center gap-1.5 text-xs font-black text-white uppercase tracking-wider">
@@ -450,6 +591,51 @@ export const MapsTrackingPage: React.FC = () => {
             >
               {isSimulationMode ? 'SIMULATION' : socketStatus}
             </span>
+          </div>
+
+          <div className="rounded-lg border border-cyan-400/20 bg-cyan-400/5 p-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">India geography master</p>
+                <p className="mt-1 text-lg font-black text-white">{geographyCoveragePercent}% <span className="text-[10px] font-medium text-slate-400">district coverage</span></p>
+              </div>
+              <button onClick={exportGeographyCoverage} className="rounded border border-cyan-400/30 px-2 py-1 text-[10px] font-semibold text-cyan-200 transition-colors hover:bg-cyan-400/10" title="Export geography coverage CSV">Export CSV</button>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-cyan-400" style={{ width: `${geographyCoveragePercent}%` }} /></div>
+            <div className="mt-2 flex justify-between text-[10px] text-slate-400"><span>{geographyCoverage.states} states · {geographyCoverage.unionTerritories} UTs</span><span>{geographyCoverage.loadedDistricts}/{geographyCoverage.officialDistricts} districts</span></div>
+            {geographyCoverage.datasetIncomplete && <p className="mt-1.5 text-[10px] leading-snug text-amber-300">Verified districts are available for drill-down; remaining official districts are flagged partial.</p>}
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Response dashboard</p>
+                <p className="mt-0.5 text-[10px] text-slate-500">Filtered operational view</p>
+              </div>
+              <button onClick={exportFilteredIncidents} className="rounded border border-white/15 p-1.5 text-slate-300 hover:bg-white/10" title="Export filtered incidents CSV" aria-label="Export filtered incidents CSV">
+                <Download size={13} />
+              </button>
+            </div>
+            <label className="relative block">
+              <Search size={13} className="pointer-events-none absolute left-2 top-2 text-slate-500" />
+              <input value={incidentSearch} onChange={(event) => setIncidentSearch(event.target.value)} placeholder="Search incident, district..." className="w-full rounded border border-white/10 bg-[#0D1828] py-1.5 pl-7 pr-2 text-[11px] text-slate-200 outline-none placeholder:text-slate-600 focus:border-cyan-400" />
+            </label>
+            <div className="mt-2 grid grid-cols-2 gap-1.5">
+              <select value={incidentStatus} onChange={(event) => setIncidentStatus(event.target.value)} className="w-full rounded border border-white/10 bg-[#0D1828] px-2 py-1.5 text-[11px] text-slate-200 outline-none focus:border-cyan-400" aria-label="Filter incidents by status">
+                <option value="all">All statuses</option>
+                {INCIDENT_STATUSES.filter((status) => status !== 'resolved' && status !== 'closed').map((status) => <option key={status} value={status}>{status[0].toUpperCase() + status.slice(1)}</option>)}
+              </select>
+              <select value={incidentSeverity} onChange={(event) => setIncidentSeverity(event.target.value)} className="w-full rounded border border-white/10 bg-[#0D1828] px-2 py-1.5 text-[11px] text-slate-200 outline-none focus:border-cyan-400" aria-label="Filter incidents by severity">
+                <option value="all">All severity</option>
+                {INCIDENT_SEVERITIES.map((severity) => <option key={severity} value={severity}>{severity[0].toUpperCase() + severity.slice(1)}</option>)}
+              </select>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
+              <div className="rounded bg-red-500/10 px-1 py-1.5"><p className="text-sm font-black text-red-300">{activeIncidents.filter((i) => i.severity === 'critical').length}</p><p className="text-[9px] text-slate-500">Critical</p></div>
+              <div className="rounded bg-amber-500/10 px-1 py-1.5"><p className="text-sm font-black text-amber-300">{activeIncidents.filter((i) => i.severity === 'high').length}</p><p className="text-[9px] text-slate-500">High</p></div>
+              <div className="rounded bg-cyan-500/10 px-1 py-1.5"><p className="text-sm font-black text-cyan-300">{activeIncidents.length}</p><p className="text-[9px] text-slate-500">Showing</p></div>
+            </div>
+            {!loadingInitialData && activeIncidents.length === 0 && <p className="mt-2 rounded border border-dashed border-white/10 px-2 py-2 text-[10px] text-slate-500">No incidents match these filters.</p>}
           </div>
 
           {/* Group 1: Intelligence Layers */}
@@ -783,10 +969,16 @@ export const MapsTrackingPage: React.FC = () => {
           {/* Floating In-Map Controls: All India Reset, Regional Focus, Zoom In/Out, Fullscreen */}
           <InMapControls
             onResetIndia={handleResetToIndia}
-            onFocusRegion={handleFocusRegion}
-            isFullscreen={isFullscreen}
-            onToggleFullscreen={handleToggleFullscreen}
-          />
+  isFullscreen={isFullscreen}
+  onToggleFullscreen={handleToggleFullscreen}
+  statesAndUTs={statesAndUTs}
+  selectedStateCode={selectedStateCode}
+  selectedState={selectedState}
+  selectedDistrictId={selectedDistrictId}
+  districtsForSelectedState={districtsForSelectedState}
+  onStateChange={handleStateChange}
+  onDistrictChange={handleDistrictChange}
+  />
 
           {/* Base Map Tile Layers */}
           {tileProvider === 'osm' && (
@@ -976,7 +1168,7 @@ export const MapsTrackingPage: React.FC = () => {
 
           {/* ─── Layer 5: Active Incidents ─── */}
           {layerGroups.incidents &&
-            activeIncidents.map((inc) => {
+            activeIncidents.filter(hasValidIncidentCoordinates).map((inc) => {
               const color = SEVERITY_COLORS[inc.severity];
               const isCritical = inc.severity === 'critical';
               const radius = isCritical ? 14 : inc.severity === 'high' ? 11 : 8;
@@ -1338,9 +1530,9 @@ export const MapsTrackingPage: React.FC = () => {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 380, opacity: 0 }}
             transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-            className="absolute top-3 right-3 bottom-3 w-80 sm:w-96 bg-[#0B1524]/98 border border-white/15 rounded-xl shadow-2xl flex flex-col overflow-hidden z-[1001] backdrop-blur-md pointer-events-auto"
+            className="brg-gis-drawer absolute top-16 right-3 bottom-3 w-80 sm:w-96 flex flex-col overflow-hidden z-[1001] pointer-events-auto"
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#07111F]/80">
+            <div className="brg-gis-drawer-header flex items-center justify-between px-4 py-3 border-b">
               <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
                 {selection.type} Command Intelligence
               </span>
