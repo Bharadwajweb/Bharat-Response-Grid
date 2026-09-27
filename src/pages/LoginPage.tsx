@@ -120,7 +120,8 @@ const ROLE_PRESETS = [
 const INDIA_GEOGRAPHY_PRESETS = INDIA_MASTER_GEOGRAPHY.map((state) => ({
   roleName: state.name,
   badge: state.type === 'union_territory' ? 'UT EOC' : 'SDMA',
-  name: `Demo ${state.name} State Administrator`,
+  name: `Demo ${state.name} ${state.type === 'union_territory' ? 'Administrator' : 'State Administrator'}`,
+  stateAdminName: `Demo ${state.name} ${state.type === 'union_territory' ? 'Administrator' : 'State Administrator'}`,
   email: `${state.code.toLowerCase().replace('in-', '')}.state@demo.brg.local`,
   role: 'state_authority' as const,
   commandLevel: 'state' as const,
@@ -485,12 +486,17 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
                             {p.avatarInitials}
                           </span>
                         </div>
-                        <span className="text-[10px] text-slate-400 block truncate">{p.name}</span>
-                        {'districtCount' in p && (
-                          <span className="text-[9px] text-cyan-300/70 block mt-0.5">
-                            {p.districtCount} districts · {p.badge}
-                          </span>
-                        )}
+  <span className="text-[10px] text-slate-400 block truncate">{p.name}</span>
+  {p.stateAssigned && (
+  <span className="text-[9px] text-slate-500 block truncate mt-0.5">
+  State/UT: {p.stateAssigned}
+  </span>
+  )}
+  {'districtCount' in p && (
+  <span className="text-[9px] text-cyan-300/70 block mt-0.5">
+  {p.districtCount} districts · {p.badge}
+  </span>
+  )}
                       </button>
                     );
                   })}
