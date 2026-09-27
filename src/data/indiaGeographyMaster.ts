@@ -3,6 +3,7 @@
 // Supporting dynamic district & operational area loading, hierarchical drill-down, and RBAC scoping.
 
 import type { JurisdictionScope, JurisdictionLevel } from '../types';
+import lgdDistrictCatalog from './lgdDistrictCatalog.json';
 
 export type AdministrativeType = 'state' | 'union_territory';
 export type DatasetStatus = 'VERIFIED_COMPLETE' | 'VERIFIED_PARTIAL';
@@ -913,9 +914,37 @@ export function getStateOrUT(nameOrCode: string): StateUTInfo | undefined {
   );
 }
 
+const normalizeGeographyName = (value: string) => value.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
+
+const officialDistrictsByState = new Map(
+  lgdDistrictCatalog.districts.reduce<Array<[string, DistrictInfo[]]>>((entries, district) => {
+    const state = INDIA_MASTER_GEOGRAPHY.find((item) => normalizeGeographyName(item.name) === normalizeGeographyName(district.stateName));
+    if (!state) return entries;
+    const existing = entries.find(([stateCode]) => stateCode === state.code)?.[1];
+    const mapped: DistrictInfo = {
+      id: `LGD-${district.districtCode}`,
+      name: district.districtName,
+      code: district.districtCode,
+      center: state.center,
+      zoom: Math.max(state.zoom, 10),
+      isVerified: true,
+    };
+    if (existing) existing.push(mapped);
+    else entries.push([state.code, [mapped]]);
+    return entries;
+  }, []),
+);
+
+export const LGD_DISTRICT_CATALOG_METADATA = {
+  source: lgdDistrictCatalog.source,
+  title: lgdDistrictCatalog.title,
+  referenceDate: lgdDistrictCatalog.referenceDate,
+  districtCount: lgdDistrictCatalog.rowCount,
+} as const;
+
 export function getDistrictsForState(stateNameOrCode: string): DistrictInfo[] {
   const state = getStateOrUT(stateNameOrCode);
-  const base = state?.districts || [];
+  const base = state ? officialDistrictsByState.get(state.code) || state.districts : [];
   const custom = state
     ? dynamicCustomDistricts[state.name] || []
     : dynamicCustomDistricts[stateNameOrCode.trim()] || [];
@@ -938,9 +967,11 @@ export function getGeographyCoverageSummary() {
     country: 'India',
     states: states.length,
     unionTerritories: unionTerritories.length,
-    officialDistricts: INDIA_MASTER_GEOGRAPHY.reduce((total, item) => total + item.totalOfficialDistricts, 0),
-    loadedDistricts: INDIA_MASTER_GEOGRAPHY.reduce((total, item) => total + item.districts.length, 0),
-    datasetIncomplete: INDIA_MASTER_GEOGRAPHY.some((item) => item.datasetStatus === 'VERIFIED_PARTIAL'),
+    officialDistricts: LGD_DISTRICT_CATALOG_METADATA.districtCount,
+    loadedDistricts: INDIA_MASTER_GEOGRAPHY.reduce((total, item) => total + getDistrictsForState(item.code).length, 0),
+    datasetIncomplete: false,
+    source: LGD_DISTRICT_CATALOG_METADATA.source,
+    referenceDate: LGD_DISTRICT_CATALOG_METADATA.referenceDate,
   } as const;
 }
 
