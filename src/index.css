@@ -6,11 +6,11 @@
 
 /* ─── CSS Variables ─── */
 :root {
-  --bg-base: #07111F;
-  --bg-surface: #0D1828;
-  --bg-elevated: #132238;
-  --bg-panel: #1A2E48;
-  --border-default: rgba(255,255,255,0.08);
+  --bg-base: #07101f;
+  --bg-surface: rgba(17, 31, 53, .72);
+  --bg-elevated: rgba(23, 42, 69, .78);
+  --bg-panel: rgba(30, 52, 82, .78);
+  --border-default: rgba(169, 205, 255, .14);
   --border-subtle: rgba(255,255,255,0.05);
   --border-strong: rgba(255,255,255,0.15);
   --text-primary: #F1F5F9;
@@ -19,8 +19,10 @@
   --color-critical: #EF4444;
   --color-warning: #F59E0B;
   --color-success: #22C55E;
-  --color-info: #06B6D4;
-  --color-primary: #3B82F6;
+  --color-info: #39d8e8;
+  --color-primary: #6ea8ff;
+  --color-violet: #a78bfa;
+  --color-teal: #2dd4bf;
   --sidebar-width: 16rem;
   --sidebar-collapsed: 4rem;
   --navbar-height: 4rem;
@@ -148,19 +150,22 @@
 /* ─── Component Layer ─── */
 @layer components {
   .brg-shell {
-    background: #0a1424;
+    background:
+      radial-gradient(circle at 12% 0%, rgba(47, 112, 196, .18), transparent 32rem),
+      radial-gradient(circle at 88% 12%, rgba(99, 70, 180, .12), transparent 28rem),
+      #07101f;
     color: #e8eef7;
   }
 
   .brg-topbar {
-    background: rgba(10, 20, 36, .94);
-    border-bottom: 1px solid rgba(148, 163, 184, .14);
-    box-shadow: 0 8px 24px rgba(2, 8, 23, .14);
-    backdrop-filter: blur(18px);
+    background: rgba(9, 19, 35, .72);
+    border-bottom: 1px solid rgba(169, 205, 255, .14);
+    box-shadow: 0 10px 35px rgba(2, 8, 23, .2);
+    backdrop-filter: blur(24px) saturate(145%);
   }
 
   .brg-page {
-    background: #0a1424;
+    background: linear-gradient(135deg, rgba(10, 24, 43, .94), rgba(7, 16, 31, .98));
   }
 
   .brg-page-header {
@@ -191,15 +196,31 @@
     max-width: 48rem;
   }
 
-  .brg-panel {
-    background: var(--surface-command);
-    border: 1px solid rgba(148, 163, 184, .14);
-    border-radius: .9rem;
-    box-shadow: 0 14px 40px rgba(2, 8, 23, .16);
+  .brg-panel,
+  .brg-page [class*="bg-[#0D1828]"],
+  .brg-page [class*="bg-[#132238]"],
+  .brg-page [class*="bg-[#0F1F35]"] {
+    background: linear-gradient(145deg, rgba(27, 50, 80, .68), rgba(13, 28, 49, .74));
+    border: 1px solid rgba(169, 205, 255, .14);
+    border-radius: 1rem;
+    box-shadow: inset 0 1px rgba(255,255,255,.055), 0 18px 44px rgba(2, 8, 23, .18);
+    backdrop-filter: blur(20px) saturate(125%);
   }
 
-  .brg-panel:hover {
-    border-color: rgba(148, 163, 184, .23);
+  .brg-panel:hover,
+  .brg-page [class*="bg-[#0D1828]"]:hover {
+    border-color: rgba(110, 168, 255, .34);
+    box-shadow: inset 0 1px rgba(255,255,255,.08), 0 18px 44px rgba(8, 47, 93, .2);
+  }
+
+  .brg-page input,
+  .brg-page select,
+  .brg-page button {
+    transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease, transform .18s ease;
+  }
+
+  .brg-page button:hover:not(:disabled) {
+    transform: translateY(-1px);
   }
 
   @media (prefers-reduced-motion: reduce) {
