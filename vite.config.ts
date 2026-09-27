@@ -8,5 +8,8 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3000,
     allowedHosts: true,
+    // The hosted preview does not provide a Vite HMR WebSocket endpoint.
+    // Disable HMR so Vite does not inject @vite/client or open a dead socket.
+    hmr: false,
   },
 })
