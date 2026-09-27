@@ -541,8 +541,24 @@ export const MapsTrackingPage: React.FC = () => {
       className="flex h-full w-full relative bg-[#060D17] text-slate-100 overflow-hidden select-none"
       style={{ height: isFullscreen ? '100vh' : 'calc(100vh - 56px)' }}
     >
+      {/* India-first emergency operations context */}
+      <div className="absolute inset-x-0 top-0 z-[1100] pointer-events-none border-b border-white/10 bg-[#07111F]/90 px-3 py-2 backdrop-blur-md sm:px-4">
+        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="flex size-2 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" aria-hidden="true" />
+            <span className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-white sm:text-xs">BRG · India Live GIS</span>
+            <span className="hidden text-[10px] text-slate-400 sm:inline">Decision support workspace</span>
+          </div>
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider">
+            <span className="rounded border border-emerald-400/25 bg-emerald-400/10 px-2 py-1 text-emerald-300">{isSimulationMode ? 'Simulation' : 'Live feed'}</span>
+            <span className="rounded border border-cyan-400/25 bg-cyan-400/10 px-2 py-1 text-cyan-200">{selectedState?.name || 'All India'}</span>
+            {selectedDistrictId && <span className="hidden rounded border border-white/15 bg-white/5 px-2 py-1 text-slate-300 sm:inline">District drill-down</span>}
+          </div>
+        </div>
+      </div>
+
       {/* ─── Operational GIS Command Layer Control (Left Top) ─── */}
-      <div className="absolute top-3 left-3 z-[1000] flex flex-col gap-2 pointer-events-auto">
+      <div className="absolute top-14 left-3 z-[1000] flex flex-col gap-2 pointer-events-auto">
         {/* Layer Panel */}
         <div className="bg-[#07111F]/95 border border-white/15 rounded-xl shadow-2xl backdrop-blur-md p-2.5 flex flex-col gap-2 w-60 sm:w-64 max-h-[calc(100vh-140px)] overflow-y-auto">
           {/* Header */}
