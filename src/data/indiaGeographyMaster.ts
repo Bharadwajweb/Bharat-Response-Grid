@@ -913,18 +913,35 @@ export function getStateOrUT(nameOrCode: string): StateUTInfo | undefined {
   );
 }
 
-export function getDistrictsForState(stateName: string): DistrictInfo[] {
-  const state = getStateOrUT(stateName);
+export function getDistrictsForState(stateNameOrCode: string): DistrictInfo[] {
+  const state = getStateOrUT(stateNameOrCode);
   const base = state?.districts || [];
-  const custom = dynamicCustomDistricts[stateName.trim()] || [];
+  const custom = state
+    ? dynamicCustomDistricts[state.name] || []
+    : dynamicCustomDistricts[stateNameOrCode.trim()] || [];
   return [...base, ...custom];
 }
 
-export function getOperationalAreasForState(stateName: string): OperationalAreaInfo[] {
-  const state = getStateOrUT(stateName);
+export function getOperationalAreasForState(stateNameOrCode: string): OperationalAreaInfo[] {
+  const state = getStateOrUT(stateNameOrCode);
   const base = state?.operationalAreas || [];
-  const custom = dynamicCustomOperationalAreas[stateName.trim()] || [];
+  const custom = state
+    ? dynamicCustomOperationalAreas[state.name] || []
+    : dynamicCustomOperationalAreas[stateNameOrCode.trim()] || [];
   return [...base, ...custom];
+}
+
+export function getGeographyCoverageSummary() {
+  const states = INDIA_MASTER_GEOGRAPHY.filter((item) => item.type === 'state');
+  const unionTerritories = INDIA_MASTER_GEOGRAPHY.filter((item) => item.type === 'union_territory');
+  return {
+    country: 'India',
+    states: states.length,
+    unionTerritories: unionTerritories.length,
+    officialDistricts: INDIA_MASTER_GEOGRAPHY.reduce((total, item) => total + item.totalOfficialDistricts, 0),
+    loadedDistricts: INDIA_MASTER_GEOGRAPHY.reduce((total, item) => total + item.districts.length, 0),
+    datasetIncomplete: INDIA_MASTER_GEOGRAPHY.some((item) => item.datasetStatus === 'VERIFIED_PARTIAL'),
+  } as const;
 }
 
 /**
@@ -966,7 +983,7 @@ export function buildJurisdictionScope(params: {
       (item) => item.name.toLowerCase() === params.district?.toLowerCase()
     );
 
-    const center = d ? d.center : (s ? s.center : [20.5937, 78.9629]);
+    const center: [number, number] = d ? d.center : (s ? s.center : [20.5937, 78.9629]);
     const zoom = d ? d.zoom : 12;
 
     return {

@@ -34,6 +34,7 @@ import { SeverityBadge, StatusBadge, TypeBadge } from '../components/ui/Badge';
 import { ProgressBar } from '../components/ui/Card';
 import { brgSocket } from '../utils/socket';
 import type { Incident, Shelter, Team, Resource, Severity } from '../types';
+import { getAllStatesAndUTs, getDistrictsForState } from '../data/indiaGeographyMaster';
 
 // ─── Initial Map View Configuration ───
 const INDIA_CENTER: [number, number] = [20.5937, 78.9629];
@@ -89,16 +90,28 @@ const WEATHER_ICON = createDivIcon('⛅', '#0284C7');
 // ─── Floating In-Map Controls Component ───
 interface MapControlsProps {
   onResetIndia: () => void;
-  onFocusRegion: (coords: [number, number], zoom: number) => void;
   isFullscreen: boolean;
   onToggleFullscreen: () => void;
+  statesAndUTs: ReturnType<typeof getAllStatesAndUTs>;
+  selectedStateCode: string;
+  selectedState: ReturnType<typeof getAllStatesAndUTs>[number] | undefined;
+  selectedDistrictId: string;
+  districtsForSelectedState: ReturnType<typeof getDistrictsForState>;
+  onStateChange: (code: string) => void;
+  onDistrictChange: (districtId: string) => void;
 }
 
 const InMapControls: React.FC<MapControlsProps> = ({
   onResetIndia,
-  onFocusRegion,
   isFullscreen,
   onToggleFullscreen,
+  statesAndUTs,
+  selectedStateCode,
+  selectedState,
+  selectedDistrictId,
+  districtsForSelectedState,
+  onStateChange,
+  onDistrictChange,
 }) => {
   const map = useMap();
 
@@ -115,27 +128,36 @@ const InMapControls: React.FC<MapControlsProps> = ({
             <span className="text-sm">🇮🇳</span>
             <span>All India</span>
           </button>
-          <button
-            onClick={() => onFocusRegion([17.75, 83.35], 11)}
-            title="Zoom to Visakhapatnam Cyclone Sector"
-            className="px-3 py-1.5 text-left text-slate-300 hover:text-white hover:bg-white/10 text-[11px] font-medium border-b border-white/10 transition-colors"
-          >
-            🌀 Vizag Sector
-          </button>
-          <button
-            onClick={() => onFocusRegion([13.018, 80.228], 13)}
-            title="Zoom to Chennai Adyar Flood Sector"
-            className="px-3 py-1.5 text-left text-slate-300 hover:text-white hover:bg-white/10 text-[11px] font-medium border-b border-white/10 transition-colors"
-          >
-            🌊 Chennai Flood
-          </button>
-          <button
-            onClick={() => onFocusRegion([30.556, 79.567], 11)}
-            title="Zoom to Chamoli Landslide Corridor"
-            className="px-3 py-1.5 text-left text-slate-300 hover:text-white hover:bg-white/10 text-[11px] font-medium transition-colors"
-          >
-            ⛰️ Chamoli Slide
-          </button>
+          <div className="border-b border-white/10 p-2 space-y-1.5">
+            <label className="sr-only" htmlFor="map-state">State or Union Territory</label>
+            <select
+              id="map-state"
+              value={selectedStateCode}
+              onChange={(event) => onStateChange(event.target.value)}
+              className="w-full rounded border border-white/15 bg-[#0D1828] px-2 py-1.5 text-[11px] text-slate-200 outline-none focus:border-cyan-400"
+            >
+              <option value="">Select state / UT</option>
+              {statesAndUTs.map((state) => (
+                <option key={state.code} value={state.code}>{state.name}</option>
+              ))}
+            </select>
+            <label className="sr-only" htmlFor="map-district">District</label>
+            <select
+              id="map-district"
+              value={selectedDistrictId}
+              onChange={(event) => onDistrictChange(event.target.value)}
+              disabled={!selectedState}
+              className="w-full rounded border border-white/15 bg-[#0D1828] px-2 py-1.5 text-[11px] text-slate-200 outline-none disabled:cursor-not-allowed disabled:opacity-50 focus:border-cyan-400"
+            >
+              <option value="">Select district</option>
+              {districtsForSelectedState.map((district) => (
+                <option key={district.id} value={district.id}>{district.name}</option>
+              ))}
+            </select>
+            {selectedState?.datasetStatus === 'VERIFIED_PARTIAL' && (
+              <p className="text-[10px] leading-snug text-amber-300">GEOGRAPHIC DATASET INCOMPLETE</p>
+            )}
+          </div>
         </div>
 
         {/* Zoom In & Out */}
@@ -223,6 +245,11 @@ export const MapsTrackingPage: React.FC = () => {
 
   // Map Tile Style: OSM Standard, Dark, or Satellite Topo
   const [tileProvider, setTileProvider] = useState<'osm' | 'dark' | 'satellite'>('osm');
+  const [selectedStateCode, setSelectedStateCode] = useState('');
+  const [selectedDistrictId, setSelectedDistrictId] = useState('');
+  const statesAndUTs = getAllStatesAndUTs();
+  const selectedState = statesAndUTs.find((state) => state.code === selectedStateCode);
+  const districtsForSelectedState = selectedState ? getDistrictsForState(selectedState.code) : [];
 
   // Grouped Layer Visibility Controls
   const [layerGroups, setLayerGroups] = useState({
@@ -327,6 +354,19 @@ export const MapsTrackingPage: React.FC = () => {
         duration: 1.0,
       });
     }
+  };
+
+  const handleStateChange = (code: string) => {
+    setSelectedStateCode(code);
+    setSelectedDistrictId('');
+    const state = statesAndUTs.find((item) => item.code === code);
+    if (state) handleFocusRegion(state.center, state.zoom);
+  };
+
+  const handleDistrictChange = (districtId: string) => {
+    setSelectedDistrictId(districtId);
+    const district = districtsForSelectedState.find((item) => item.id === districtId);
+    if (district) handleFocusRegion(district.center, district.zoom);
   };
 
   // ─── Fullscreen Toggle ───
@@ -783,10 +823,16 @@ export const MapsTrackingPage: React.FC = () => {
           {/* Floating In-Map Controls: All India Reset, Regional Focus, Zoom In/Out, Fullscreen */}
           <InMapControls
             onResetIndia={handleResetToIndia}
-            onFocusRegion={handleFocusRegion}
-            isFullscreen={isFullscreen}
-            onToggleFullscreen={handleToggleFullscreen}
-          />
+  isFullscreen={isFullscreen}
+  onToggleFullscreen={handleToggleFullscreen}
+  statesAndUTs={statesAndUTs}
+  selectedStateCode={selectedStateCode}
+  selectedState={selectedState}
+  selectedDistrictId={selectedDistrictId}
+  districtsForSelectedState={districtsForSelectedState}
+  onStateChange={handleStateChange}
+  onDistrictChange={handleDistrictChange}
+  />
 
           {/* Base Map Tile Layers */}
           {tileProvider === 'osm' && (
