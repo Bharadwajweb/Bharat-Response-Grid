@@ -150,10 +150,53 @@
 /* ─── Component Layer ─── */
 @layer components {
   .brg-login {
+    --pointer-x: 0px;
+    --pointer-y: 0px;
+    --pointer-glow-x: 50%;
+    --pointer-glow-y: 46%;
     background:
-      radial-gradient(circle at 76% 18%, rgba(37, 78, 255, .28), transparent 30rem),
-      radial-gradient(circle at 20% 75%, rgba(34, 76, 255, .12), transparent 24rem),
+      radial-gradient(circle at var(--pointer-glow-x) var(--pointer-glow-y), rgba(37, 78, 255, .3), transparent 28rem),
       linear-gradient(135deg, #090b12, #050609);
+  }
+
+  .brg-login-video {
+    z-index: 0;
+    opacity: .48;
+    transform: translate3d(calc(var(--pointer-x) * -.12), calc(var(--pointer-y) * -.12), 0) scale(1.04);
+    transition: transform .8s cubic-bezier(.2,.7,.2,1), opacity .5s ease;
+    will-change: transform;
+  }
+
+  .brg-login-video video {
+    filter: saturate(.78) contrast(1.12) brightness(.54);
+    transform: scale(1.08);
+  }
+
+  .brg-login-video-tint {
+    background:
+      linear-gradient(90deg, rgba(5, 8, 15, .9) 0%, rgba(5, 8, 15, .52) 48%, rgba(20, 32, 90, .3) 100%),
+      linear-gradient(180deg, rgba(3, 5, 10, .35), rgba(3, 5, 10, .72));
+    mix-blend-mode: normal;
+  }
+
+  .brg-login > header,
+  .brg-login > main,
+  .brg-login > footer {
+    position: relative;
+    z-index: 2;
+  }
+
+  .brg-login form {
+    transform: translate3d(calc(var(--pointer-x) * .055), calc(var(--pointer-y) * .055), 0);
+    transition: transform .8s cubic-bezier(.2,.7,.2,1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .brg-login-video,
+    .brg-login form {
+      transform: none;
+      transition: none;
+    }
   }
 
   .brg-login [class*="bg-[#0A1322]"],

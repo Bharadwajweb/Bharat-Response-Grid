@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -205,6 +205,41 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
     }
   };
 
+  const loginStageRef = useRef<HTMLDivElement>(null);
+  const motionFrameRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const stage = loginStageRef.current;
+    if (!stage) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (motionFrameRef.current) cancelAnimationFrame(motionFrameRef.current);
+      motionFrameRef.current = requestAnimationFrame(() => {
+        const x = event.clientX / window.innerWidth - 0.5;
+        const y = event.clientY / window.innerHeight - 0.5;
+        stage.style.setProperty('--pointer-x', `${x * 34}px`);
+        stage.style.setProperty('--pointer-y', `${y * 34}px`);
+        stage.style.setProperty('--pointer-glow-x', `${50 + x * 18}%`);
+        stage.style.setProperty('--pointer-glow-y', `${46 + y * 18}%`);
+      });
+    };
+
+    const resetPointer = () => {
+      stage.style.setProperty('--pointer-x', '0px');
+      stage.style.setProperty('--pointer-y', '0px');
+      stage.style.setProperty('--pointer-glow-x', '50%');
+      stage.style.setProperty('--pointer-glow-y', '46%');
+    };
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    window.addEventListener('pointerleave', resetPointer);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerleave', resetPointer);
+      if (motionFrameRef.current) cancelAnimationFrame(motionFrameRef.current);
+    };
+  }, []);
+
   const selectPreset = (preset: LoginPreset) => {
     setEmail(preset.email);
     setPassword('admin123');
@@ -212,7 +247,22 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
   };
 
   return (
-    <div className="brg-login min-h-screen bg-[#1A1D20] text-slate-100 flex flex-col justify-between relative overflow-hidden select-none">
+    <div ref={loginStageRef} className="brg-login min-h-screen bg-[#1A1D20] text-slate-100 flex flex-col justify-between relative overflow-hidden select-none">
+      <div className="brg-login-video absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+        <video
+          className="absolute inset-0 h-full w-full object-cover"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          poster="https://images.unsplash.com/photo-1530789253388-582c481c54b0?auto=format&fit=crop&w=2200&q=80"
+        >
+          <source src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Framer%20Agents%20Design%20with%20AI%2C%20Keep%20Control.%20-%20Framer%20%281080p%29-VxEkQjpRbKtW1KKNBr67lMldjeahrK.mp4" type="video/mp4" />
+        </video>
+        <div className="brg-login-video-tint absolute inset-0" />
+      </div>
+
       {/* ─── Sophisticated GIS Cartographic Background & Grid Network ─── */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {/* Subtle Latitude/Longitude GIS grid lines */}
