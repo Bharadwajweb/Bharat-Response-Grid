@@ -34,7 +34,7 @@ import { SeverityBadge, StatusBadge, TypeBadge } from '../components/ui/Badge';
 import { ProgressBar } from '../components/ui/Card';
 import { brgSocket } from '../utils/socket';
 import type { Incident, Shelter, Team, Resource, Severity } from '../types';
-import { getAllStatesAndUTs, getDistrictsForState } from '../data/indiaGeographyMaster';
+import { getAllStatesAndUTs, getDistrictsForState, getGeographyCoverageSummary } from '../data/indiaGeographyMaster';
 
 // ─── Initial Map View Configuration ───
 const INDIA_CENTER: [number, number] = [20.5937, 78.9629];
@@ -250,6 +250,38 @@ export const MapsTrackingPage: React.FC = () => {
   const statesAndUTs = getAllStatesAndUTs();
   const selectedState = statesAndUTs.find((state) => state.code === selectedStateCode);
   const districtsForSelectedState = selectedState ? getDistrictsForState(selectedState.code) : [];
+  const geographyCoverage = useMemo(() => getGeographyCoverageSummary(), []);
+  const geographyCoveragePercent = Math.round((geographyCoverage.loadedDistricts / geographyCoverage.officialDistricts) * 100);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const stateFromUrl = params.get('state') || '';
+    const districtFromUrl = params.get('district') || '';
+    if (statesAndUTs.some((state) => state.code === stateFromUrl)) setSelectedStateCode(stateFromUrl);
+    if (districtFromUrl) setSelectedDistrictId(districtFromUrl);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (selectedStateCode) params.set('state', selectedStateCode); else params.delete('state');
+    if (selectedDistrictId) params.set('district', selectedDistrictId); else params.delete('district');
+    window.history.replaceState(null, '', `${window.location.pathname}${params.toString() ? `?${params}` : ''}`);
+  }, [selectedStateCode, selectedDistrictId]);
+
+  const exportGeographyCoverage = useCallback(() => {
+    const rows = [['state_or_ut', 'type', 'official_districts', 'loaded_districts', 'coverage_percent']];
+    statesAndUTs.forEach((state) => {
+      const loaded = getDistrictsForState(state.code).length;
+      rows.push([state.name, state.type, String(state.totalOfficialDistricts), String(loaded), String(Math.round((loaded / state.totalOfficialDistricts) * 100))]);
+    });
+    const csv = rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(',')).join('\\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'bharat-response-grid-geography-coverage.csv';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }, [statesAndUTs]);
 
   // Grouped Layer Visibility Controls
   const [layerGroups, setLayerGroups] = useState({
@@ -490,6 +522,19 @@ export const MapsTrackingPage: React.FC = () => {
             >
               {isSimulationMode ? 'SIMULATION' : socketStatus}
             </span>
+          </div>
+
+          <div className="rounded-lg border border-cyan-400/20 bg-cyan-400/5 p-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">India geography master</p>
+                <p className="mt-1 text-lg font-black text-white">{geographyCoveragePercent}% <span className="text-[10px] font-medium text-slate-400">district coverage</span></p>
+              </div>
+              <button onClick={exportGeographyCoverage} className="rounded border border-cyan-400/30 px-2 py-1 text-[10px] font-semibold text-cyan-200 transition-colors hover:bg-cyan-400/10" title="Export geography coverage CSV">Export CSV</button>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-cyan-400" style={{ width: `${geographyCoveragePercent}%` }} /></div>
+            <div className="mt-2 flex justify-between text-[10px] text-slate-400"><span>{geographyCoverage.states} states · {geographyCoverage.unionTerritories} UTs</span><span>{geographyCoverage.loadedDistricts}/{geographyCoverage.officialDistricts} districts</span></div>
+            {geographyCoverage.datasetIncomplete && <p className="mt-1.5 text-[10px] leading-snug text-amber-300">Verified districts are available for drill-down; remaining official districts are flagged partial.</p>}
           </div>
 
           {/* Group 1: Intelligence Layers */}
