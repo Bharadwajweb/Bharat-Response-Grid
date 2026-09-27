@@ -520,7 +520,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
                   <select
                     value={selectedStateName}
                     onChange={(event) => selectState(event.target.value)}
-                    className="mt-1 w-full rounded-lg border border-white/10 bg-[#060D17] px-3 py-2 text-xs text-slate-100 outline-none focus:border-teal-400"
+                    className="brg-dark-select mt-1 w-full rounded-lg border border-white/10 bg-[#060D17] px-3 py-2 text-xs text-slate-100 outline-none focus:border-teal-400"
                   >
                     <option value="">Select a state or UT</option>
                     {INDIA_MASTER_GEOGRAPHY.map((state) => (
@@ -534,7 +534,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
                     <select
                       value={selectedDistrictName}
                       onChange={(event) => setSelectedDistrictName(event.target.value)}
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-[#060D17] px-3 py-2 text-xs text-slate-100 outline-none focus:border-teal-400"
+                      className="brg-dark-select mt-1 w-full rounded-lg border border-white/10 bg-[#060D17] px-3 py-2 text-xs text-slate-100 outline-none focus:border-teal-400"
                     >
                       <option value="">All districts in {selectedState?.name}</option>
                       {selectedState.districts.map((district) => (

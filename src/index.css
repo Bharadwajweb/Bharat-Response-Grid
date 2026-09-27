@@ -396,8 +396,29 @@
 
   .brg-page input,
   .brg-page select,
+  .brg-login input,
+  .brg-login select,
   .brg-page button {
     transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease, transform .18s ease;
+  }
+
+  .brg-page select,
+  .brg-login select {
+    color-scheme: dark;
+    color: #f8fafc !important;
+    background-color: rgba(10, 14, 24, .92) !important;
+  }
+
+  .brg-page select option,
+  .brg-login select option {
+    background: #111827 !important;
+    color: #f8fafc !important;
+  }
+
+  .brg-page select option:checked,
+  .brg-login select option:checked {
+    background: #263b78 !important;
+    color: #ffffff !important;
   }
 
   .brg-page button:hover:not(:disabled) {
