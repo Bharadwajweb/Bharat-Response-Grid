@@ -23,7 +23,11 @@
   --color-primary: #3B82F6;
   --sidebar-width: 16rem;
   --sidebar-collapsed: 4rem;
-  --navbar-height: 3.5rem;
+  --navbar-height: 4rem;
+  --surface-command: #101b2d;
+  --surface-command-raised: #15233a;
+  --accent-command: #5b8def;
+  --accent-command-soft: rgba(91,141,239,.14);
 }
 
 /* Light mode overrides */
@@ -143,6 +147,65 @@
 
 /* ─── Component Layer ─── */
 @layer components {
+  .brg-shell {
+    background: #0a1424;
+    color: #e8eef7;
+  }
+
+  .brg-topbar {
+    background: rgba(10, 20, 36, .94);
+    border-bottom: 1px solid rgba(148, 163, 184, .14);
+    box-shadow: 0 8px 24px rgba(2, 8, 23, .14);
+    backdrop-filter: blur(18px);
+  }
+
+  .brg-page {
+    background: #0a1424;
+  }
+
+  .brg-page-header {
+    background: linear-gradient(180deg, #0e1a2c 0%, #0a1424 100%);
+    border-color: rgba(148, 163, 184, .12);
+  }
+
+  .brg-eyebrow {
+    color: #80a7e8;
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+
+  .brg-page-title {
+    margin-top: .4rem;
+    color: #f8fafc;
+    font-size: clamp(1.35rem, 2.2vw, 2rem);
+    font-weight: 750;
+    letter-spacing: -.025em;
+  }
+
+  .brg-page-subtitle {
+    margin-top: .4rem;
+    color: #8fa2bb;
+    font-size: .83rem;
+    max-width: 48rem;
+  }
+
+  .brg-panel {
+    background: var(--surface-command);
+    border: 1px solid rgba(148, 163, 184, .14);
+    border-radius: .9rem;
+    box-shadow: 0 14px 40px rgba(2, 8, 23, .16);
+  }
+
+  .brg-panel:hover {
+    border-color: rgba(148, 163, 184, .23);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  }
+
   /* Card base */
   .card {
     background-color: var(--bg-surface);

@@ -25,16 +25,16 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'COMMAND',
     items: [
-      { to: '/', icon: LayoutDashboard, label: 'Command Center' },
-      { to: '/operations', icon: Radio, label: 'Live Operations' },
-      { to: '/maps', icon: Map, label: 'Live Map' },
+      { to: '/', icon: LayoutDashboard, label: 'Command Overview' },
+      { to: '/operations', icon: Radio, label: 'Response Operations' },
+      { to: '/maps', icon: Map, label: 'India GIS' },
     ],
   },
   {
     title: 'INTELLIGENCE',
     items: [
-      { to: '/incidents', icon: AlertTriangle, label: 'Incidents' },
-      { to: '/risk-intelligence', icon: Compass, label: 'Risk Intelligence' },
+      { to: '/incidents', icon: AlertTriangle, label: 'Live Incidents' },
+      { to: '/risk-intelligence', icon: Compass, label: 'Risk & Analytics' },
       { to: '/weather', icon: Cloud, label: 'Weather' },
       { to: '/earthquakes', icon: Activity, label: 'Earthquakes' },
       { to: '/decision-support', icon: Compass, label: 'Decision Support' },
@@ -68,8 +68,8 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'ANALYTICS',
     items: [
-      { to: '/analytics', icon: BarChart3, label: 'Analytics' },
-      { to: '/research', icon: FlaskConical, label: 'Research' },
+      { to: '/analytics', icon: BarChart3, label: 'Risk & Analytics' },
+      { to: '/research', icon: FlaskConical, label: 'Reports & Export' },
     ],
   },
   {

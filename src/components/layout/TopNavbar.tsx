@@ -72,7 +72,7 @@ export const TopNavbar: React.FC = () => {
   };
 
   return (
-    <header className="h-14 flex-shrink-0 flex items-center justify-between px-3 sm:px-4 border-b border-white/8 bg-[#07111F]/95 backdrop-blur-sm sticky top-0 z-30">
+    <header className="brg-topbar h-16 flex-shrink-0 flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30">
       {/* Left: Mobile menu + Command scope & Demo notice */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <button
