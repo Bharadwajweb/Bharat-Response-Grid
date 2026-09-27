@@ -70,16 +70,7 @@ export const useAppStore = create<AppState>((set, get) => {
   const initialSocketLive = brgSocket.connected;
 
   return {
-    currentUser: {
-      id: 'DEMO-CENTRAL',
-      name: 'Demo Central Administrator',
-      email: 'central.admin@demo.brg.local',
-      role: 'central_authority',
-      commandLevel: 'national',
-      avatarInitials: 'CA',
-      status: 'active',
-      lastActive: 'now',
-    },
+    currentUser: null,
     isAuthenticated: false,
     theme: 'dark',
     language: 'en',

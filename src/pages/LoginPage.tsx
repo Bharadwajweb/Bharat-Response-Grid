@@ -13,6 +13,7 @@ import {
   Radio,
   Activity,
   Cpu,
+  Search,
 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { Button } from '../components/ui/Button';
@@ -141,6 +142,13 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [presetSearch, setPresetSearch] = useState('');
+
+  const visiblePresets = ALL_LOGIN_PRESETS.filter((preset) =>
+    `${preset.roleName} ${preset.badge} ${preset.stateAssigned || ''} ${(preset as any).districtAssigned || ''}`
+      .toLowerCase()
+      .includes(presetSearch.toLowerCase().trim())
+  );
 
   // Real System Status
   const [systemStatus, setSystemStatus] = useState<any>(null);
@@ -184,21 +192,8 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
         });
         setAuthenticated(true);
         navigate('/');
-      } else if (email && password) {
-        setCurrentUser({
-          id: `USR-${Date.now().toString().slice(-4)}`,
-          name: email.split('@')[0],
-          email,
-          role: 'national_admin',
-          commandLevel: 'national',
-          avatarInitials: 'GO',
-          status: 'active',
-          lastActive: 'Just now',
-        });
-        setAuthenticated(true);
-        navigate('/');
       } else {
-        setError('Please enter valid official emergency command credentials.');
+        setError('Use one of the listed demo roles or enter valid official emergency command credentials.');
       }
     } finally {
       setLoading(false);
@@ -454,14 +449,24 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
 
               {/* Quick Role Authentication Presets */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
-                    India-wide Role Presets
-                  </span>
-                  <span className="text-[10px] text-slate-500">36 states/UTs · tap to populate</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
-                  {ALL_LOGIN_PRESETS.map((p, idx) => {
+  <div className="flex items-center justify-between mb-2">
+  <div>
+  <p className="text-xs font-bold text-slate-300 uppercase tracking-wider">Demo Access Presets</p>
+  <p className="text-[10px] text-slate-500">{INDIA_GEOGRAPHY_PRESETS.length} states/UTs · searchable national coverage</p>
+  </div>
+  </div>
+  <label className="relative mb-2 block">
+  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" size={14} aria-hidden="true" />
+  <span className="sr-only">Search demo roles, states, or districts</span>
+  <input
+    value={presetSearch}
+    onChange={(event) => setPresetSearch(event.target.value)}
+    placeholder="Search state, district, or role"
+    className="w-full rounded-lg border border-white/10 bg-[#0E1B2E]/80 py-2 pl-8 pr-3 text-xs text-slate-200 outline-none placeholder:text-slate-600 focus:border-blue-500"
+  />
+  </label>
+  <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
+  {visiblePresets.map((p, idx) => {
                     const isSelected = email.toLowerCase() === p.email.toLowerCase();
                     return (
                       <button
