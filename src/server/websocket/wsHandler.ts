@@ -6,7 +6,19 @@ let wss: WebSocketServer | null = null;
 const clients = new Set<WebSocket>();
 
 export function setupWebSocket(server: Server): WebSocketServer {
-  wss = new WebSocketServer({ server, path: '/ws' });
+  // Use noServer so the application socket cannot intercept Vite's HMR
+  // upgrade requests. The shared HTTP server routes only /ws here and leaves
+  // every other upgrade (including Vite's HMR endpoint) to Vite.
+  wss = new WebSocketServer({ noServer: true });
+
+  server.on('upgrade', (request, socket, head) => {
+    const requestUrl = new URL(request.url ?? '/', 'http://localhost');
+    if (requestUrl.pathname !== '/ws') return;
+
+    wss?.handleUpgrade(request, socket, head, (ws) => {
+      wss?.emit('connection', ws, request);
+    });
+  });
 
   wss.on('connection', (ws: WebSocket, _req) => {
     clients.add(ws);
