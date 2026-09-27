@@ -37,7 +37,9 @@ async function startServer() {
       // Attach Vite's HMR WebSocket to the same HTTP server as Express.
       // This keeps the browser-facing /@vite/client connection alive while
       // the application WebSocket remains available at /ws.
-      server: { middlewareMode: true, host: HOST, port: PORT, hmr: { server } },
+      // Disable Vite HMR in custom middleware mode because the preview host does not reliably proxy its upgrade.
+      // This prevents the injected /@vite/client from opening a socket that immediately closes.
+      server: { middlewareMode: true, host: HOST, port: PORT, hmr: false },
       appType: 'spa',
     });
     app.use(vite.middlewares);
