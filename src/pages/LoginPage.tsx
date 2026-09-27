@@ -248,21 +248,6 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
 
   return (
     <div ref={loginStageRef} className="brg-login min-h-screen bg-[#1A1D20] text-slate-100 flex flex-col justify-between relative overflow-hidden select-none">
-      <div className="brg-login-video absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-        <video
-          className="absolute inset-0 h-full w-full object-cover"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="metadata"
-          poster="https://images.unsplash.com/photo-1530789253388-582c481c54b0?auto=format&fit=crop&w=2200&q=80"
-        >
-          <source src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Framer%20Agents%20Design%20with%20AI%2C%20Keep%20Control.%20-%20Framer%20%281080p%29-VxEkQjpRbKtW1KKNBr67lMldjeahrK.mp4" type="video/mp4" />
-        </video>
-        <div className="brg-login-video-tint absolute inset-0" />
-      </div>
-
       {/* ─── Sophisticated GIS Cartographic Background & Grid Network ─── */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {/* Subtle Latitude/Longitude GIS grid lines */}

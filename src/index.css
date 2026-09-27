@@ -154,36 +154,52 @@
     --pointer-y: 0px;
     --pointer-glow-x: 50%;
     --pointer-glow-y: 46%;
+    isolation: isolate;
     background:
       radial-gradient(circle at var(--pointer-glow-x) var(--pointer-glow-y), rgba(37, 78, 255, .3), transparent 28rem),
       linear-gradient(135deg, #090b12, #050609);
   }
 
-  .brg-login-video {
+  .brg-login::before,
+  .brg-login::after {
+    content: "";
+    position: absolute;
+    inset: -18%;
+    pointer-events: none;
     z-index: 0;
-    opacity: .48;
-    transform: translate3d(calc(var(--pointer-x) * -.12), calc(var(--pointer-y) * -.12), 0) scale(1.04);
-    transition: transform .8s cubic-bezier(.2,.7,.2,1), opacity .5s ease;
+    transition: transform .8s cubic-bezier(.2,.7,.2,1);
     will-change: transform;
   }
 
-  .brg-login-video video {
-    filter: saturate(.78) contrast(1.12) brightness(.54);
-    transform: scale(1.08);
-  }
-
-  .brg-login-video-tint {
+  .brg-login::before {
     background:
-      linear-gradient(90deg, rgba(5, 8, 15, .9) 0%, rgba(5, 8, 15, .52) 48%, rgba(20, 32, 90, .3) 100%),
-      linear-gradient(180deg, rgba(3, 5, 10, .35), rgba(3, 5, 10, .72));
-    mix-blend-mode: normal;
+      radial-gradient(circle at var(--pointer-glow-x) var(--pointer-glow-y), rgba(52, 101, 255, .36), transparent 24rem),
+      radial-gradient(circle at 75% 12%, rgba(42, 75, 220, .22), transparent 34rem),
+      radial-gradient(circle at 10% 85%, rgba(28, 64, 200, .16), transparent 28rem);
+    transform: translate3d(calc(var(--pointer-x) * -.18), calc(var(--pointer-y) * -.18), 0);
+    filter: blur(18px);
   }
 
+  .brg-login::after {
+    background:
+      linear-gradient(115deg, transparent 0 34%, rgba(96, 141, 255, .1) 42%, transparent 53%),
+      repeating-linear-gradient(90deg, rgba(105, 137, 255, .045) 0 1px, transparent 1px 90px),
+      repeating-linear-gradient(0deg, rgba(105, 137, 255, .035) 0 1px, transparent 1px 90px);
+    transform: translate3d(calc(var(--pointer-x) * .1), calc(var(--pointer-y) * .1), 0);
+    opacity: .62;
+  }
   .brg-login > header,
   .brg-login > main,
   .brg-login > footer {
     position: relative;
     z-index: 2;
+  }
+
+  .brg-login > .absolute.inset-0:not(.brg-login-video) {
+    z-index: 1;
+    opacity: .58;
+    transform: translate3d(calc(var(--pointer-x) * .06), calc(var(--pointer-y) * .06), 0);
+    transition: transform .8s cubic-bezier(.2,.7,.2,1);
   }
 
   .brg-login form {
