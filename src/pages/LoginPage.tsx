@@ -220,8 +220,8 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
           className="absolute inset-0 opacity-[0.035]"
           style={{
             backgroundImage: `
-              linear-gradient(rgba(56, 189, 248, 0.4) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(56, 189, 248, 0.4) 1px, transparent 1px)
+              linear-gradient(rgba(216, 180, 254, 0.28) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(216, 180, 254, 0.28) 1px, transparent 1px)
             `,
             backgroundSize: '48px 48px',
           }}
@@ -229,7 +229,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
 
         {/* Ambient Dark Navy & Indigo Radial Glows */}
         <div className="absolute -top-40 -left-40 w-[650px] h-[650px] rounded-full bg-emerald-900/10 blur-[120px]" />
-        <div className="absolute -bottom-40 right-0 w-[700px] h-[700px] rounded-full bg-cyan-950/15 blur-[140px]" />
+        <div className="absolute -bottom-40 right-0 w-[700px] h-[700px] rounded-full bg-purple-950/20 blur-[140px]" />
 
         {/* SVG Atmospheric Isobars & Geographic Network Telemetry */}
         <svg
@@ -239,21 +239,21 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
         >
           <defs>
             <radialGradient id="cycloneIsobar" cx="72%" cy="65%" r="35%">
-              <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.35" />
-              <stop offset="40%" stopColor="#0284C7" stopOpacity="0.15" />
-              <stop offset="100%" stopColor="#0F172A" stopOpacity="0" />
+              <stop offset="0%" stopColor="#D8B4FE" stopOpacity="0.35" />
+              <stop offset="40%" stopColor="#A855F7" stopOpacity="0.15" />
+              <stop offset="100%" stopColor="#09090B" stopOpacity="0" />
             </radialGradient>
             <linearGradient id="gridLineFade" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.4" />
-              <stop offset="50%" stopColor="#6366F1" stopOpacity="0.2" />
-              <stop offset="100%" stopColor="#0F172A" stopOpacity="0" />
+              <stop offset="0%" stopColor="#D8B4FE" stopOpacity="0.4" />
+              <stop offset="50%" stopColor="#C084FC" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#09090B" stopOpacity="0" />
             </linearGradient>
           </defs>
 
           {/* Bay of Bengal & Arabian Sea Isobar Rings */}
-          <circle cx="72%" cy="68%" r="180" fill="none" stroke="#38BDF8" strokeWidth="1" strokeDasharray="4 6" opacity="0.6" />
-          <circle cx="72%" cy="68%" r="280" fill="none" stroke="#38BDF8" strokeWidth="1" strokeDasharray="2 8" opacity="0.4" />
-          <circle cx="72%" cy="68%" r="420" fill="none" stroke="#38BDF8" strokeWidth="0.8" opacity="0.25" />
+          <circle cx="72%" cy="68%" r="180" fill="none" stroke="#D8B4FE" strokeWidth="1" strokeDasharray="4 6" opacity="0.6" />
+          <circle cx="72%" cy="68%" r="280" fill="none" stroke="#D8B4FE" strokeWidth="1" strokeDasharray="2 8" opacity="0.4" />
+          <circle cx="72%" cy="68%" r="420" fill="none" stroke="#D8B4FE" strokeWidth="0.8" opacity="0.25" />
 
           {/* Telemetry Vectors Connecting Strategic Nodes (Delhi -> Chennai -> Vizag -> Dehradun) */}
           <line x1="38%" y1="28%" x2="45%" y2="76%" stroke="url(#gridLineFade)" strokeWidth="1" strokeDasharray="6 4" />
@@ -262,17 +262,17 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
           <line x1="38%" y1="28%" x2="42%" y2="18%" stroke="url(#gridLineFade)" strokeWidth="1" strokeDasharray="3 3" />
 
           {/* Node Rings */}
-          <circle cx="38%" cy="28%" r="5" fill="#38BDF8" opacity="0.8" />
+          <circle cx="38%" cy="28%" r="5" fill="#D8B4FE" opacity="0.8" />
           <circle cx="45%" cy="76%" r="5" fill="#10B981" opacity="0.8" />
           <circle cx="58%" cy="62%" r="5" fill="#F59E0B" opacity="0.8" />
-          <circle cx="42%" cy="18%" r="4" fill="#6366F1" opacity="0.8" />
+          <circle cx="42%" cy="18%" r="4" fill="#C084FC" opacity="0.8" />
         </svg>
       </div>
 
       {/* ─── Top Header Bar ─── */}
       <header className="px-6 py-4 border-b border-white/8 flex items-center justify-between z-10 backdrop-blur-md bg-[#060D17]/70">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center shadow-lg shadow-blue-500/20 border border-blue-400/30">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-fuchsia-300 to-purple-500 flex items-center justify-center shadow-lg shadow-purple-500/30 border border-purple-200/30">
             <Shield size={20} className="text-white" />
           </div>
           <div>

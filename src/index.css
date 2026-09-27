@@ -6,11 +6,11 @@
 
 /* ─── CSS Variables ─── */
 :root {
-  --bg-base: #16191d;
-  --bg-surface: rgba(34, 39, 44, .78);
-  --bg-elevated: rgba(43, 49, 55, .82);
-  --bg-panel: rgba(51, 57, 63, .8);
-  --border-default: rgba(226, 232, 240, .16);
+  --bg-base: #09090b;
+  --bg-surface: rgba(24, 24, 29, .82);
+  --bg-elevated: rgba(34, 32, 43, .86);
+  --bg-panel: rgba(42, 36, 57, .78);
+  --border-default: rgba(255, 255, 255, .12);
   --border-subtle: rgba(255,255,255,0.05);
   --border-strong: rgba(255,255,255,0.15);
   --text-primary: #F1F5F9;
@@ -20,9 +20,9 @@
   --color-warning: #F59E0B;
   --color-success: #22C55E;
   --color-info: #39d8e8;
-  --color-primary: #5eead4;
-  --color-violet: #c4b5fd;
-  --color-teal: #34d399;
+  --color-primary: #c084fc;
+  --color-violet: #a855f7;
+  --color-teal: #e9d5ff;
   --sidebar-width: 16rem;
   --sidebar-collapsed: 4rem;
   --navbar-height: 4rem;
@@ -151,8 +151,8 @@
 @layer components {
   .brg-login {
     background:
-      radial-gradient(circle at 12% 0%, rgba(45, 212, 191, .08), transparent 32rem),
-      linear-gradient(135deg, #202427, #15181b);
+      radial-gradient(circle at 76% 18%, rgba(168, 85, 247, .22), transparent 30rem),
+      linear-gradient(135deg, #111014, #09090b);
   }
 
   .brg-login [class*="bg-[#0A1322]"],
@@ -170,39 +170,41 @@
 
   .brg-shell {
     background:
-      radial-gradient(circle at 12% 0%, rgba(45, 212, 191, .1), transparent 32rem),
-      radial-gradient(circle at 88% 12%, rgba(196, 181, 253, .08), transparent 28rem),
-      #16191d;
-    color: #f1f5f9;
+      radial-gradient(circle at 78% 9%, rgba(168, 85, 247, .18), transparent 28rem),
+      radial-gradient(circle at 8% 88%, rgba(192, 132, 252, .08), transparent 24rem),
+      #09090b;
+    color: #fafafa;
   }
 
   .brg-sidebar {
     width: var(--sidebar-width);
-    background: linear-gradient(180deg, rgba(37, 42, 47, .94), rgba(22, 25, 29, .98));
-    border-color: rgba(226, 232, 240, .14);
-    box-shadow: 18px 0 45px rgba(0, 0, 0, .24);
-    backdrop-filter: blur(22px) saturate(115%);
+    background: linear-gradient(180deg, rgba(18, 16, 24, .94), rgba(9, 9, 11, .98));
+    border-color: rgba(255, 255, 255, .1);
+    box-shadow: 18px 0 45px rgba(0, 0, 0, .32);
+    backdrop-filter: blur(22px) saturate(125%);
   }
 
   .brg-brand-mark {
-    background: linear-gradient(145deg, #5eead4, #34d399);
-    color: #10221e;
-    box-shadow: 0 0 24px rgba(52, 211, 153, .2);
+    background: linear-gradient(145deg, #f5f3ff, #c084fc);
+    color: #1b1028;
+    box-shadow: 0 0 28px rgba(192, 132, 252, .3);
   }
 
   .brg-topbar {
-    background: rgba(29, 33, 37, .78);
-    border-bottom: 1px solid rgba(226, 232, 240, .14);
-    box-shadow: 0 10px 35px rgba(0, 0, 0, .24);
+    background: rgba(12, 12, 15, .74);
+    border-bottom: 1px solid rgba(255, 255, 255, .1);
+    box-shadow: 0 10px 35px rgba(0, 0, 0, .36);
     backdrop-filter: blur(24px) saturate(145%);
   }
 
   .brg-page {
-    background: linear-gradient(135deg, rgba(10, 24, 43, .94), rgba(7, 16, 31, .98));
+    background: linear-gradient(135deg, rgba(14, 13, 18, .96), rgba(9, 9, 11, .99));
   }
 
   .brg-gis {
-    background: #1a1d20;
+    background:
+      radial-gradient(circle at 78% 20%, rgba(168, 85, 247, .16), transparent 25rem),
+      #0b0a0f;
   }
 
   .brg-gis-banner {
@@ -213,16 +215,16 @@
 
   .brg-gis-panel,
   .brg-gis [class*="absolute top-3 right-3 bottom-3"] {
-    background: linear-gradient(145deg, rgba(46, 52, 57, .9), rgba(25, 29, 33, .94));
-    border: 1px solid rgba(226, 232, 240, .18);
+    background: linear-gradient(145deg, rgba(39, 29, 55, .9), rgba(16, 14, 21, .94));
+    border: 1px solid rgba(216, 180, 254, .18);
     border-radius: 1rem;
     box-shadow: 0 20px 55px rgba(0, 0, 0, .34), inset 0 1px rgba(255,255,255,.06);
     backdrop-filter: blur(24px) saturate(135%);
   }
 
   .brg-gis-drawer {
-    background: linear-gradient(160deg, rgba(48, 55, 60, .97), rgba(24, 28, 32, .99));
-    border: 1px solid rgba(226, 232, 240, .2);
+    background: linear-gradient(160deg, rgba(43, 32, 60, .97), rgba(13, 12, 18, .99));
+    border: 1px solid rgba(216, 180, 254, .2);
     border-radius: 1rem;
     box-shadow: -18px 20px 55px rgba(0, 0, 0, .38), inset 0 1px rgba(255,255,255,.06);
     backdrop-filter: blur(26px) saturate(140%);
@@ -287,10 +289,10 @@
   .brg-page [class*="bg-[#0D1828]"],
   .brg-page [class*="bg-[#132238]"],
   .brg-page [class*="bg-[#0F1F35]"] {
-    background: linear-gradient(145deg, rgba(58, 65, 70, .72), rgba(28, 33, 37, .78));
-    border: 1px solid rgba(226, 232, 240, .14);
-    border-radius: 1rem;
-    box-shadow: inset 0 1px rgba(255,255,255,.055), 0 18px 44px rgba(2, 8, 23, .18);
+    background: linear-gradient(145deg, rgba(35, 29, 46, .74), rgba(18, 17, 22, .84));
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 1.25rem;
+    box-shadow: inset 0 1px rgba(255,255,255,.07), 0 18px 44px rgba(0, 0, 0, .3);
     backdrop-filter: blur(20px) saturate(125%);
   }
 
@@ -308,6 +310,27 @@
 
   .brg-page button:hover:not(:disabled) {
     transform: translateY(-1px);
+  }
+
+  .brg-page button,
+  .brg-page input,
+  .brg-page select,
+  .brg-topbar button {
+    border-radius: 999px;
+  }
+
+  .brg-page button[class*="bg-blue"],
+  .brg-page button[class*="bg-emerald"],
+  .brg-page button[class*="bg-teal"] {
+    background: linear-gradient(135deg, #f5f3ff, #c084fc) !important;
+    color: #1b1028 !important;
+    box-shadow: 0 8px 26px rgba(168, 85, 247, .22);
+  }
+
+  .nav-item-active {
+    background: rgba(168, 85, 247, .14) !important;
+    border-color: rgba(216, 180, 254, .3) !important;
+    box-shadow: inset 3px 0 #c084fc, 0 0 24px rgba(168, 85, 247, .1);
   }
 
   @media (prefers-reduced-motion: reduce) {
