@@ -231,11 +231,33 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
       stage.style.setProperty('--pointer-glow-y', '46%');
     };
 
+    const magneticItems = Array.from(stage.querySelectorAll<HTMLElement>('[data-magnetic]'));
+    const magneticHandlers = magneticItems.map((item) => {
+      const move = (event: PointerEvent) => {
+        const bounds = item.getBoundingClientRect();
+        const x = (event.clientX - bounds.left - bounds.width / 2) / bounds.width;
+        const y = (event.clientY - bounds.top - bounds.height / 2) / bounds.height;
+        item.style.setProperty('--magnetic-x', `${x * 16}px`);
+        item.style.setProperty('--magnetic-y', `${y * 12}px`);
+      };
+      const leave = () => {
+        item.style.setProperty('--magnetic-x', '0px');
+        item.style.setProperty('--magnetic-y', '0px');
+      };
+      item.addEventListener('pointermove', move, { passive: true });
+      item.addEventListener('pointerleave', leave);
+      return { item, move, leave };
+    });
+
     window.addEventListener('pointermove', handlePointerMove, { passive: true });
     window.addEventListener('pointerleave', resetPointer);
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerleave', resetPointer);
+      magneticHandlers.forEach(({ item, move, leave }) => {
+        item.removeEventListener('pointermove', move);
+        item.removeEventListener('pointerleave', leave);
+      });
       if (motionFrameRef.current) cancelAnimationFrame(motionFrameRef.current);
     };
   }, []);
@@ -336,7 +358,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
 
           <button
             onClick={() => navigate('/citizen')}
-            className="text-xs px-3.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 transition-all flex items-center gap-2 font-semibold shadow-sm"
+            data-magnetic className="brg-magnetic text-xs px-3.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 transition-all flex items-center gap-2 font-semibold shadow-sm"
           >
             <Users size={14} />
             <span>Public Citizen Portal →</span>
@@ -420,7 +442,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35 }}
-              className="w-full max-w-md bg-[#0A1322] border border-white/12 rounded-2xl shadow-2xl p-6 sm:p-7 space-y-5 backdrop-blur-xl"
+              data-magnetic className="brg-magnetic w-full max-w-md bg-[#0A1322] border border-white/12 rounded-2xl shadow-2xl p-6 sm:p-7 space-y-5 backdrop-blur-xl"
             >
               {/* Card Header */}
               <div className="space-y-2">

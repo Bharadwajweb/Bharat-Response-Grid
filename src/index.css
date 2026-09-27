@@ -217,6 +217,26 @@
     transition: transform .8s cubic-bezier(.2,.7,.2,1);
   }
 
+  .brg-magnetic {
+    --magnetic-x: 0px;
+    --magnetic-y: 0px;
+    transform: translate3d(var(--magnetic-x), var(--magnetic-y), 0);
+    transition: transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .22s ease, border-color .22s ease;
+    will-change: transform;
+  }
+
+  .brg-magnetic:hover {
+    border-color: rgba(143, 183, 255, .42) !important;
+    box-shadow: 0 16px 42px rgba(45, 87, 255, .2), inset 0 1px rgba(255,255,255,.08);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .brg-magnetic {
+      transform: none;
+      transition: none;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .brg-login-video,
     .brg-login form {
