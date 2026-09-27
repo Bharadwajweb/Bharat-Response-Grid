@@ -35,11 +35,10 @@ async function startServer() {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       // Attach Vite's HMR WebSocket to the same HTTP server as Express.
-      // This keeps the browser-facing /@vite/client connection alive while
-      // the application WebSocket remains available at /ws.
-      // Disable Vite HMR in custom middleware mode because the preview host does not reliably proxy its upgrade.
-      // This prevents the injected /@vite/client from opening a socket that immediately closes.
-      server: { middlewareMode: true, host: HOST, port: PORT, hmr: false },
+      // The preview serves /@vite/client through this middleware, so Vite must
+      // receive upgrade events from the actual HTTP server instead of creating
+      // a separate listener that the preview proxy cannot reach.
+      server: { middlewareMode: true, host: HOST, port: PORT, hmr: { server } },
       appType: 'spa',
     });
     app.use(vite.middlewares);
