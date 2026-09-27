@@ -17,6 +17,7 @@ import {
 import { useAppStore } from '../store/appStore';
 import { Button } from '../components/ui/Button';
 import { getSystemStatus, loginUser } from '../utils/api';
+import { INDIA_MASTER_GEOGRAPHY } from '../data/indiaGeographyMaster';
 
 const ROLE_PRESETS = [
   {
@@ -111,9 +112,23 @@ const ROLE_PRESETS = [
     commandLevel: 'district',
     avatarInitials: 'CZ',
   },
-];
+  ];
 
-export const LoginPage: React.FC = () => {
+  // Keep login coverage aligned with the national geography catalog instead of
+  // hard-coding only a few demo states on the login screen.
+  const INDIA_GEOGRAPHY_PRESETS = INDIA_MASTER_GEOGRAPHY.map((state) => ({
+    roleName: state.name,
+    badge: state.type === 'union_territory' ? 'UT EOC' : 'SDMA',
+    name: `Demo ${state.name} State Administrator`,
+    email: `${state.code.toLowerCase().replace('in-', '')}.state@demo.brg.local`,
+    role: 'state_authority' as const,
+    commandLevel: 'state' as const,
+    stateAssigned: state.name,
+    avatarInitials: state.code.replace('IN-', ''),
+    districtCount: state.districts.length || state.totalOfficialDistricts,
+  }));
+  
+  export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { setAuthenticated, setCurrentUser } = useAppStore();
 
@@ -438,12 +453,12 @@ export const LoginPage: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
-                    Role Presets
+                    India-wide Role Presets
                   </span>
-                  <span className="text-[10px] text-slate-500">Tap to populate</span>
+                  <span className="text-[10px] text-slate-500">36 states/UTs · tap to populate</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {ROLE_PRESETS.map((p, idx) => {
+                <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
+                  {[...ROLE_PRESETS, ...INDIA_GEOGRAPHY_PRESETS].map((p, idx) => {
                     const isSelected = email.toLowerCase() === p.email.toLowerCase();
                     return (
                       <button
@@ -463,6 +478,11 @@ export const LoginPage: React.FC = () => {
                           </span>
                         </div>
                         <span className="text-[10px] text-slate-400 block truncate">{p.name}</span>
+                        {'districtCount' in p && (
+                          <span className="text-[9px] text-cyan-300/70 block mt-0.5">
+                            {p.districtCount} districts · {p.badge}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
