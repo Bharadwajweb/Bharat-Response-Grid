@@ -550,11 +550,11 @@ export const MapsTrackingPage: React.FC = () => {
   return (
     <div
       ref={mapContainerRef}
-      className="flex h-full w-full relative bg-[#060D17] text-slate-100 overflow-hidden select-none"
+      className="brg-gis flex h-full w-full relative text-slate-100 overflow-hidden select-none"
       style={{ height: isFullscreen ? '100vh' : 'calc(100vh - 56px)' }}
     >
       {/* India-first emergency operations context */}
-      <div className="absolute inset-x-0 top-0 z-[1100] pointer-events-none border-b border-white/10 bg-[#07111F]/90 px-3 py-2 backdrop-blur-md sm:px-4">
+      <div className="brg-gis-banner absolute inset-x-0 top-0 z-[1100] pointer-events-none px-3 py-2 sm:px-4">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <span className="flex size-2 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" aria-hidden="true" />
@@ -570,9 +570,9 @@ export const MapsTrackingPage: React.FC = () => {
       </div>
 
       {/* ─── Operational GIS Command Layer Control (Left Top) ─── */}
-      <div className="absolute top-14 left-3 z-[1000] flex flex-col gap-2 pointer-events-auto">
+      <div className="absolute top-16 left-3 z-[1000] flex flex-col gap-2 pointer-events-auto">
         {/* Layer Panel */}
-        <div className="bg-[#07111F]/95 border border-white/15 rounded-xl shadow-2xl backdrop-blur-md p-2.5 flex flex-col gap-2 w-60 sm:w-64 max-h-[calc(100vh-140px)] overflow-y-auto">
+        <div className="brg-gis-panel p-2.5 flex flex-col gap-2 w-60 sm:w-64 max-h-[calc(100vh-140px)] overflow-y-auto">
           {/* Header */}
           <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
             <div className="flex items-center gap-1.5 text-xs font-black text-white uppercase tracking-wider">
@@ -1530,9 +1530,9 @@ export const MapsTrackingPage: React.FC = () => {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 380, opacity: 0 }}
             transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-            className="absolute top-3 right-3 bottom-3 w-80 sm:w-96 bg-[#0B1524]/98 border border-white/15 rounded-xl shadow-2xl flex flex-col overflow-hidden z-[1001] backdrop-blur-md pointer-events-auto"
+            className="brg-gis-drawer absolute top-16 right-3 bottom-3 w-80 sm:w-96 flex flex-col overflow-hidden z-[1001] pointer-events-auto"
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#07111F]/80">
+            <div className="brg-gis-drawer-header flex items-center justify-between px-4 py-3 border-b">
               <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
                 {selection.type} Command Intelligence
               </span>

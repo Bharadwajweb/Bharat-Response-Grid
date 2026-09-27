@@ -91,12 +91,12 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onClose }) =
   const isCitizen = currentUser?.role === 'citizen';
 
   return (
-    <div className="flex flex-col h-full bg-[#07111F] border-r border-white/8 select-none">
+    <div className="brg-sidebar flex flex-col h-full border-r select-none">
       {/* Brand Header */}
       <div className={`flex items-center ${collapsed ? 'justify-center px-0' : 'justify-between px-3.5'} py-3.5 border-b border-white/8 flex-shrink-0`}>
         {!collapsed && (
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/20">
+            <div className="brg-brand-mark w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0">
               <Shield size={16} className="text-white" />
             </div>
             <div className="min-w-0">
