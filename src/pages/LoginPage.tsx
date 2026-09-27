@@ -212,7 +212,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
   };
 
   return (
-    <div className="min-h-screen bg-[#060D17] text-slate-100 flex flex-col justify-between relative overflow-hidden select-none">
+    <div className="brg-login min-h-screen bg-[#1A1D20] text-slate-100 flex flex-col justify-between relative overflow-hidden select-none">
       {/* ─── Sophisticated GIS Cartographic Background & Grid Network ─── */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {/* Subtle Latitude/Longitude GIS grid lines */}
@@ -228,7 +228,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
         />
 
         {/* Ambient Dark Navy & Indigo Radial Glows */}
-        <div className="absolute -top-40 -left-40 w-[650px] h-[650px] rounded-full bg-blue-900/15 blur-[120px]" />
+        <div className="absolute -top-40 -left-40 w-[650px] h-[650px] rounded-full bg-emerald-900/10 blur-[120px]" />
         <div className="absolute -bottom-40 right-0 w-[700px] h-[700px] rounded-full bg-cyan-950/15 blur-[140px]" />
 
         {/* SVG Atmospheric Isobars & Geographic Network Telemetry */}
@@ -272,7 +272,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
       {/* ─── Top Header Bar ─── */}
       <header className="px-6 py-4 border-b border-white/8 flex items-center justify-between z-10 backdrop-blur-md bg-[#060D17]/70">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-blue-500/20 border border-blue-400/30">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-400 flex items-center justify-center shadow-lg shadow-blue-500/20 border border-blue-400/30">
             <Shield size={20} className="text-white" />
           </div>
           <div>
@@ -280,7 +280,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
               <span className="text-xs font-black tracking-widest text-white uppercase">
                 BRG · BHARAT RESPONSE GRID
               </span>
-              <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 border border-blue-500/30 text-blue-300">
+              <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/12 border border-emerald-400/30 text-emerald-300">
                 GOVT OF INDIA
               </span>
             </div>
@@ -315,13 +315,13 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
           {/* Left Column: Visual Identity, GIS Telemetry Atmosphere */}
           <div className="lg:col-span-6 space-y-6 hidden lg:block">
             <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/25 text-blue-400 text-xs font-bold tracking-widest uppercase">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-400/25 text-teal-300 text-xs font-bold tracking-widest uppercase">
                 <Radio size={13} className="animate-pulse text-cyan-400" />
                 <span>Inter-Agency National Command Node</span>
               </div>
               <h1 className="text-4xl font-black tracking-tight text-white leading-tight">
                 BHARAT <br />
-                <span className="bg-gradient-to-r from-blue-400 via-cyan-300 to-indigo-300 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-emerald-300 via-teal-200 to-slate-200 bg-clip-text text-transparent">
                   RESPONSE GRID
                 </span>
               </h1>
@@ -344,7 +344,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
               </div>
 
               <div className="p-3.5 rounded-xl bg-[#0C1626]/90 border border-white/8 backdrop-blur-md">
-                <div className="flex items-center gap-2 text-blue-400 mb-1">
+                <div className="flex items-center gap-2 text-teal-300 mb-1">
                   <Cpu size={15} />
                   <span className="text-xs font-bold uppercase tracking-wider">Dynamic Routing</span>
                 </div>
@@ -373,7 +373,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
                 </div>
                 <div className="bg-[#07111F] p-2 rounded-lg border border-white/5">
                   <span className="text-[10px] text-slate-500 block">OSM GIS</span>
-                  <span className="text-xs font-bold text-blue-400">Active</span>
+                  <span className="text-xs font-bold text-teal-300">Active</span>
                 </div>
               </div>
             </div>
@@ -390,7 +390,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
               {/* Card Header */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow shadow-blue-500/30">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shadow shadow-blue-500/30">
                     <Shield size={16} className="text-white" />
                   </div>
                   <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[10px] font-bold tracking-wider uppercase">
@@ -463,7 +463,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
                   <select
                     value={selectedStateName}
                     onChange={(event) => selectState(event.target.value)}
-                    className="mt-1 w-full rounded-lg border border-white/10 bg-[#060D17] px-3 py-2 text-xs text-slate-100 outline-none focus:border-blue-500"
+                    className="mt-1 w-full rounded-lg border border-white/10 bg-[#060D17] px-3 py-2 text-xs text-slate-100 outline-none focus:border-teal-400"
                   >
                     <option value="">Select a state or UT</option>
                     {INDIA_MASTER_GEOGRAPHY.map((state) => (
@@ -477,7 +477,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
                     <select
                       value={selectedDistrictName}
                       onChange={(event) => setSelectedDistrictName(event.target.value)}
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-[#060D17] px-3 py-2 text-xs text-slate-100 outline-none focus:border-blue-500"
+                      className="mt-1 w-full rounded-lg border border-white/10 bg-[#060D17] px-3 py-2 text-xs text-slate-100 outline-none focus:border-teal-400"
                     >
                       <option value="">All districts in {selectedState?.name}</option>
                       {selectedState.districts.map((district) => (
@@ -514,7 +514,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
                       onChange={(e) => setEmail(e.target.value)}
                       required
                       placeholder="officer@ndma.gov.in"
-                      className="w-full bg-[#060D17] border border-white/12 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="w-full bg-[#060D17] border border-white/12 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-400"
                     />
                   </div>
                 </div>
@@ -531,7 +531,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
                       onChange={(e) => setPassword(e.target.value)}
                       required
                       placeholder="••••••••"
-                      className="w-full bg-[#060D17] border border-white/12 rounded-lg pl-9 pr-10 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="w-full bg-[#060D17] border border-white/12 rounded-lg pl-9 pr-10 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-400"
                     />
                     <button
                       type="button"
@@ -562,7 +562,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
                   variant="primary"
                   size="md"
                   disabled={loading}
-                  className="w-full bg-blue-600 hover:bg-blue-500 text-xs font-bold py-2.5 shadow-lg shadow-blue-600/30 transition-all"
+                  className="w-full bg-emerald-500 hover:bg-blue-500 text-xs font-bold py-2.5 shadow-lg shadow-blue-600/30 transition-all"
                   icon={<ArrowRight size={15} />}
                 >
                   {loading ? 'Authenticating Command Grid...' : 'Sign In to Command Center'}

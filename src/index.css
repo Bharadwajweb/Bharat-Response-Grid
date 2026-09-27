@@ -6,11 +6,11 @@
 
 /* ─── CSS Variables ─── */
 :root {
-  --bg-base: #07101f;
-  --bg-surface: rgba(17, 31, 53, .72);
-  --bg-elevated: rgba(23, 42, 69, .78);
-  --bg-panel: rgba(30, 52, 82, .78);
-  --border-default: rgba(169, 205, 255, .14);
+  --bg-base: #16191d;
+  --bg-surface: rgba(34, 39, 44, .78);
+  --bg-elevated: rgba(43, 49, 55, .82);
+  --bg-panel: rgba(51, 57, 63, .8);
+  --border-default: rgba(226, 232, 240, .16);
   --border-subtle: rgba(255,255,255,0.05);
   --border-strong: rgba(255,255,255,0.15);
   --text-primary: #F1F5F9;
@@ -20,9 +20,9 @@
   --color-warning: #F59E0B;
   --color-success: #22C55E;
   --color-info: #39d8e8;
-  --color-primary: #6ea8ff;
-  --color-violet: #a78bfa;
-  --color-teal: #2dd4bf;
+  --color-primary: #5eead4;
+  --color-violet: #c4b5fd;
+  --color-teal: #34d399;
   --sidebar-width: 16rem;
   --sidebar-collapsed: 4rem;
   --navbar-height: 4rem;
@@ -149,32 +149,51 @@
 
 /* ─── Component Layer ─── */
 @layer components {
+  .brg-login {
+    background:
+      radial-gradient(circle at 12% 0%, rgba(45, 212, 191, .08), transparent 32rem),
+      linear-gradient(135deg, #202427, #15181b);
+  }
+
+  .brg-login [class*="bg-[#0A1322]"],
+  .brg-login [class*="bg-[#0B1524]"],
+  .brg-login [class*="bg-[#0C1626]"],
+  .brg-login [class*="bg-[#0E1B2E]"],
+  .brg-login [class*="bg-[#060D17]"] {
+    background: rgba(48, 55, 60, .76) !important;
+    border-color: rgba(226, 232, 240, .14) !important;
+  }
+
+  .brg-login header {
+    background: rgba(29, 33, 37, .78) !important;
+  }
+
   .brg-shell {
     background:
-      radial-gradient(circle at 12% 0%, rgba(47, 112, 196, .18), transparent 32rem),
-      radial-gradient(circle at 88% 12%, rgba(99, 70, 180, .12), transparent 28rem),
-      #07101f;
-    color: #e8eef7;
+      radial-gradient(circle at 12% 0%, rgba(45, 212, 191, .1), transparent 32rem),
+      radial-gradient(circle at 88% 12%, rgba(196, 181, 253, .08), transparent 28rem),
+      #16191d;
+    color: #f1f5f9;
   }
 
   .brg-sidebar {
     width: var(--sidebar-width);
-    background: linear-gradient(180deg, rgba(9, 21, 39, .92), rgba(5, 13, 26, .96));
-    border-color: rgba(169, 205, 255, .12);
-    box-shadow: 18px 0 45px rgba(2, 8, 23, .18);
-    backdrop-filter: blur(22px) saturate(125%);
+    background: linear-gradient(180deg, rgba(37, 42, 47, .94), rgba(22, 25, 29, .98));
+    border-color: rgba(226, 232, 240, .14);
+    box-shadow: 18px 0 45px rgba(0, 0, 0, .24);
+    backdrop-filter: blur(22px) saturate(115%);
   }
 
   .brg-brand-mark {
-    background: linear-gradient(145deg, #6ea8ff, #2dd4bf);
-    color: #06101e;
-    box-shadow: 0 0 24px rgba(76, 168, 255, .24);
+    background: linear-gradient(145deg, #5eead4, #34d399);
+    color: #10221e;
+    box-shadow: 0 0 24px rgba(52, 211, 153, .2);
   }
 
   .brg-topbar {
-    background: rgba(9, 19, 35, .72);
-    border-bottom: 1px solid rgba(169, 205, 255, .14);
-    box-shadow: 0 10px 35px rgba(2, 8, 23, .2);
+    background: rgba(29, 33, 37, .78);
+    border-bottom: 1px solid rgba(226, 232, 240, .14);
+    box-shadow: 0 10px 35px rgba(0, 0, 0, .24);
     backdrop-filter: blur(24px) saturate(145%);
   }
 
@@ -183,7 +202,7 @@
   }
 
   .brg-gis {
-    background: #07101d;
+    background: #1a1d20;
   }
 
   .brg-gis-banner {
@@ -194,16 +213,16 @@
 
   .brg-gis-panel,
   .brg-gis [class*="absolute top-3 right-3 bottom-3"] {
-    background: linear-gradient(145deg, rgba(12, 28, 49, .88), rgba(7, 17, 32, .92));
-    border: 1px solid rgba(169, 205, 255, .18);
+    background: linear-gradient(145deg, rgba(46, 52, 57, .9), rgba(25, 29, 33, .94));
+    border: 1px solid rgba(226, 232, 240, .18);
     border-radius: 1rem;
     box-shadow: 0 20px 55px rgba(0, 0, 0, .34), inset 0 1px rgba(255,255,255,.06);
     backdrop-filter: blur(24px) saturate(135%);
   }
 
   .brg-gis-drawer {
-    background: linear-gradient(160deg, rgba(14, 34, 58, .96), rgba(7, 17, 32, .98));
-    border: 1px solid rgba(169, 205, 255, .2);
+    background: linear-gradient(160deg, rgba(48, 55, 60, .97), rgba(24, 28, 32, .99));
+    border: 1px solid rgba(226, 232, 240, .2);
     border-radius: 1rem;
     box-shadow: -18px 20px 55px rgba(0, 0, 0, .38), inset 0 1px rgba(255,255,255,.06);
     backdrop-filter: blur(26px) saturate(140%);
@@ -224,8 +243,8 @@
 
   .brg-gis .leaflet-control-zoom a,
   .brg-gis .leaflet-control-layers {
-    background: rgba(10, 25, 44, .88) !important;
-    color: #dbeafe !important;
+    background: rgba(39, 45, 49, .92) !important;
+    color: #ecfdf5 !important;
     backdrop-filter: blur(16px);
   }
 
@@ -237,12 +256,12 @@
   }
 
   .brg-page-header {
-    background: linear-gradient(180deg, #0e1a2c 0%, #0a1424 100%);
-    border-color: rgba(148, 163, 184, .12);
+    background: linear-gradient(180deg, #30363b 0%, #202529 100%);
+    border-color: rgba(226, 232, 240, .14);
   }
 
   .brg-eyebrow {
-    color: #80a7e8;
+    color: #5eead4;
     font-size: .68rem;
     font-weight: 700;
     letter-spacing: .16em;
@@ -268,8 +287,8 @@
   .brg-page [class*="bg-[#0D1828]"],
   .brg-page [class*="bg-[#132238]"],
   .brg-page [class*="bg-[#0F1F35]"] {
-    background: linear-gradient(145deg, rgba(27, 50, 80, .68), rgba(13, 28, 49, .74));
-    border: 1px solid rgba(169, 205, 255, .14);
+    background: linear-gradient(145deg, rgba(58, 65, 70, .72), rgba(28, 33, 37, .78));
+    border: 1px solid rgba(226, 232, 240, .14);
     border-radius: 1rem;
     box-shadow: inset 0 1px rgba(255,255,255,.055), 0 18px 44px rgba(2, 8, 23, .18);
     backdrop-filter: blur(20px) saturate(125%);
@@ -277,8 +296,8 @@
 
   .brg-panel:hover,
   .brg-page [class*="bg-[#0D1828]"]:hover {
-    border-color: rgba(110, 168, 255, .34);
-    box-shadow: inset 0 1px rgba(255,255,255,.08), 0 18px 44px rgba(8, 47, 93, .2);
+    border-color: rgba(94, 234, 212, .42);
+    box-shadow: inset 0 1px rgba(255,255,255,.08), 0 18px 44px rgba(13, 84, 77, .2);
   }
 
   .brg-page input,
@@ -322,8 +341,9 @@
   }
   .nav-item-active {
     @apply text-white;
-    background: rgba(59,130,246,0.15);
-    border: 1px solid rgba(59,130,246,0.25);
+    background: rgba(45, 212, 191, .12);
+    border: 1px solid rgba(94, 234, 212, .28);
+    box-shadow: inset 3px 0 #5eead4;
   }
 
   /* Metric number */
