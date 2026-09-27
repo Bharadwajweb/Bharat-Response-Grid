@@ -32,6 +32,7 @@ import {
   Download,
 } from 'lucide-react';
 import { useIncidentStore } from '../store/incidentStore';
+import { useAppStore } from '../store/appStore';
 import { SeverityBadge, StatusBadge, TypeBadge } from '../components/ui/Badge';
 import { ProgressBar } from '../components/ui/Card';
 import { brgSocket } from '../utils/socket';
@@ -223,6 +224,7 @@ interface Selection {
 
 export const MapsTrackingPage: React.FC = () => {
   const { incidents, addIncident, updateIncident } = useIncidentStore();
+  const { currentUser } = useAppStore();
 
   // Operational GIS Entities State
   const [shelters, setShelters] = useState<Shelter[]>([]);
@@ -251,9 +253,16 @@ export const MapsTrackingPage: React.FC = () => {
   const [selectedDistrictId, setSelectedDistrictId] = useState('');
   const [incidentSearch, setIncidentSearch] = useState('');
   const [incidentStatus, setIncidentStatus] = useState('all');
-  const statesAndUTs = getAllStatesAndUTs();
+  const allStatesAndUTs = getAllStatesAndUTs();
+  const permittedStatesAndUTs = useMemo(() => {
+    if (!currentUser?.stateAssigned || currentUser.commandLevel === 'national') return allStatesAndUTs;
+    return allStatesAndUTs.filter((state) => state.name.toLowerCase() === currentUser.stateAssigned?.toLowerCase());
+  }, [allStatesAndUTs, currentUser?.commandLevel, currentUser?.stateAssigned]);
+  const statesAndUTs = permittedStatesAndUTs;
   const selectedState = statesAndUTs.find((state) => state.code === selectedStateCode);
-  const districtsForSelectedState = selectedState ? getDistrictsForState(selectedState.code) : [];
+  const districtsForSelectedState = selectedState
+    ? getDistrictsForState(selectedState.code).filter((district) => !currentUser?.districtAssigned || currentUser.commandLevel !== 'district' || district.name.toLowerCase() === currentUser.districtAssigned.toLowerCase())
+    : [];
   const geographyCoverage = useMemo(() => getGeographyCoverageSummary(), []);
   const geographyCoveragePercent = Math.round((geographyCoverage.loadedDistricts / geographyCoverage.officialDistricts) * 100);
 
@@ -496,6 +505,8 @@ export const MapsTrackingPage: React.FC = () => {
   const activeIncidents = useMemo(
     () => incidents.filter((i) => {
       if (i.status === 'resolved') return false;
+      if (currentUser?.stateAssigned && currentUser.commandLevel !== 'national' && i.location.state.toLowerCase() !== currentUser.stateAssigned.toLowerCase()) return false;
+      if (currentUser?.districtAssigned && currentUser.commandLevel === 'district' && i.location.district.toLowerCase() !== currentUser.districtAssigned.toLowerCase()) return false;
       if (incidentStatus !== 'all' && i.status !== incidentStatus) return false;
       const query = incidentSearch.trim().toLowerCase();
       if (!query) return true;
