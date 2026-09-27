@@ -25,9 +25,6 @@ async function startServer() {
   // Create HTTP server
   const server = http.createServer(app);
 
-  // Setup WebSocket on the same port at /ws
-  setupWebSocket(server);
-
   const isProduction = process.env.NODE_ENV === 'production';
 
   if (!isProduction) {
@@ -41,9 +38,13 @@ async function startServer() {
       server: { middlewareMode: true, host: HOST, port: PORT, hmr: { server } },
       appType: 'spa',
     });
+    // Register the application socket after Vite has installed its HMR upgrade
+    // listener. The /ws-only guard then leaves Vite's upgrade path untouched.
+    setupWebSocket(server);
     app.use(vite.middlewares);
   } else {
     // Production static serving
+    setupWebSocket(server);
     const distPath = path.resolve(__dirname, 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
