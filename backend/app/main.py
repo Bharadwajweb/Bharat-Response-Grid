@@ -53,6 +53,10 @@ class DecisionAnalysisRequest(BaseModel):
     populationInVicinity: int = 150000
 
 # ─── Core Health & Endpoints ───
+@app.get("/")
+async def root_status():
+    return {"status": "ok", "message": "Backend API is running"}
+
 @app.get("/api/system/status")
 async def get_system_status():
     return {
