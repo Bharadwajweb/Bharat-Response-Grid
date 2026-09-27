@@ -31,11 +31,12 @@ async function startServer() {
     // Vite Dev Server middleware mode
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      // Attach Vite's HMR WebSocket to the same HTTP server as Express.
-      // The preview serves /@vite/client through this middleware, so Vite must
-      // receive upgrade events from the actual HTTP server instead of creating
-      // a separate listener that the preview proxy cannot reach.
-      server: { middlewareMode: true, host: HOST, port: PORT, hmr: { server } },
+      // The hosted preview proxy does not forward Vite's development HMR
+      // WebSocket, so allowing Vite to inject its client causes repeated
+      // "WebSocket closed without opened" errors. The app still reloads when
+      // the preview server restarts, and the application WebSocket remains
+      // available at /ws.
+      server: { middlewareMode: true, host: HOST, port: PORT, hmr: false },
       appType: 'spa',
     });
     // Register the application socket after Vite has installed its HMR upgrade
