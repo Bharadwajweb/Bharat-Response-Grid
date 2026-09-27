@@ -172,6 +172,16 @@
   }
 
   .brg-login::before {
+    animation: brg-orbit-glow 18s ease-in-out infinite alternate;
+  }
+
+  @keyframes brg-orbit-glow {
+    0% { filter: blur(18px); opacity: .78; }
+    50% { filter: blur(28px); opacity: 1; }
+    100% { filter: blur(20px); opacity: .82; }
+  }
+
+  .brg-login::before {
     background:
       radial-gradient(circle at var(--pointer-glow-x) var(--pointer-glow-y), rgba(52, 101, 255, .36), transparent 24rem),
       radial-gradient(circle at 75% 12%, rgba(42, 75, 220, .22), transparent 34rem),
