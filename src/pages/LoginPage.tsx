@@ -116,17 +116,20 @@ const ROLE_PRESETS = [
 
   // Keep login coverage aligned with the national geography catalog instead of
   // hard-coding only a few demo states on the login screen.
-  const INDIA_GEOGRAPHY_PRESETS = INDIA_MASTER_GEOGRAPHY.map((state) => ({
-    roleName: state.name,
-    badge: state.type === 'union_territory' ? 'UT EOC' : 'SDMA',
-    name: `Demo ${state.name} State Administrator`,
-    email: `${state.code.toLowerCase().replace('in-', '')}.state@demo.brg.local`,
-    role: 'state_authority' as const,
-    commandLevel: 'state' as const,
-    stateAssigned: state.name,
-    avatarInitials: state.code.replace('IN-', ''),
-    districtCount: state.districts.length || state.totalOfficialDistricts,
-  }));
+const INDIA_GEOGRAPHY_PRESETS = INDIA_MASTER_GEOGRAPHY.map((state) => ({
+  roleName: state.name,
+  badge: state.type === 'union_territory' ? 'UT EOC' : 'SDMA',
+  name: `Demo ${state.name} State Administrator`,
+  email: `${state.code.toLowerCase().replace('in-', '')}.state@demo.brg.local`,
+  role: 'state_authority' as const,
+  commandLevel: 'state' as const,
+  stateAssigned: state.name,
+  avatarInitials: state.code.replace('IN-', ''),
+  districtCount: state.districts.length || state.totalOfficialDistricts,
+}));
+
+const ALL_LOGIN_PRESETS = [...ROLE_PRESETS, ...INDIA_GEOGRAPHY_PRESETS];
+type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
   
   export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -165,7 +168,7 @@ const ROLE_PRESETS = [
     } catch (err: unknown) {
       console.warn('Backend login fallback to local role preset:', err);
       // Fallback local matching
-      const preset = ROLE_PRESETS.find((p) => p.email.toLowerCase() === email.toLowerCase());
+      const preset = ALL_LOGIN_PRESETS.find((p) => p.email.toLowerCase() === email.toLowerCase());
       if (preset) {
         setCurrentUser({
           id: `USR-${preset.avatarInitials}`,
@@ -202,7 +205,7 @@ const ROLE_PRESETS = [
     }
   };
 
-  const selectPreset = (preset: (typeof ROLE_PRESETS)[0]) => {
+  const selectPreset = (preset: LoginPreset) => {
     setEmail(preset.email);
     setPassword('admin123');
     setError('');
@@ -458,7 +461,7 @@ const ROLE_PRESETS = [
                   <span className="text-[10px] text-slate-500">36 states/UTs · tap to populate</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
-                  {[...ROLE_PRESETS, ...INDIA_GEOGRAPHY_PRESETS].map((p, idx) => {
+                  {ALL_LOGIN_PRESETS.map((p, idx) => {
                     const isSelected = email.toLowerCase() === p.email.toLowerCase();
                     return (
                       <button
