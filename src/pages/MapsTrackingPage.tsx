@@ -38,6 +38,7 @@ import { ProgressBar } from '../components/ui/Card';
 import { brgSocket } from '../utils/socket';
 import type { Incident, Shelter, Team, Resource, Severity } from '../types';
 import { getAllStatesAndUTs, getDistrictsForState, getGeographyCoverageSummary } from '../data/indiaGeographyMaster';
+import { filterIncidents, hasValidIncidentCoordinates, INCIDENT_SEVERITIES, INCIDENT_STATUSES } from '../data/incidentValidation';
 
 // ─── Initial Map View Configuration ───
 const INDIA_CENTER: [number, number] = [20.5937, 78.9629];
@@ -253,6 +254,7 @@ export const MapsTrackingPage: React.FC = () => {
   const [selectedDistrictId, setSelectedDistrictId] = useState('');
   const [incidentSearch, setIncidentSearch] = useState('');
   const [incidentStatus, setIncidentStatus] = useState('all');
+  const [incidentSeverity, setIncidentSeverity] = useState('all');
   const allStatesAndUTs = getAllStatesAndUTs();
   const permittedStatesAndUTs = useMemo(() => {
     if (!currentUser?.stateAssigned || currentUser.commandLevel === 'national') return allStatesAndUTs;
@@ -260,9 +262,9 @@ export const MapsTrackingPage: React.FC = () => {
   }, [allStatesAndUTs, currentUser?.commandLevel, currentUser?.stateAssigned]);
   const statesAndUTs = permittedStatesAndUTs;
   const selectedState = statesAndUTs.find((state) => state.code === selectedStateCode);
-  const districtsForSelectedState = selectedState
+  const districtsForSelectedState = useMemo(() => selectedState
     ? getDistrictsForState(selectedState.code).filter((district) => !currentUser?.districtAssigned || currentUser.commandLevel !== 'district' || district.name.toLowerCase() === currentUser.districtAssigned.toLowerCase())
-    : [];
+    : [], [selectedState, currentUser?.commandLevel, currentUser?.districtAssigned]);
   const geographyCoverage = useMemo(() => getGeographyCoverageSummary(), []);
   const geographyCoveragePercent = Math.round((geographyCoverage.loadedDistricts / geographyCoverage.officialDistricts) * 100);
 
@@ -273,6 +275,16 @@ export const MapsTrackingPage: React.FC = () => {
     if (statesAndUTs.some((state) => state.code === stateFromUrl)) setSelectedStateCode(stateFromUrl);
     if (districtFromUrl) setSelectedDistrictId(districtFromUrl);
   }, []);
+
+  useEffect(() => {
+    if (!selectedStateCode) {
+      if (selectedDistrictId) setSelectedDistrictId('');
+      return;
+    }
+    if (selectedDistrictId && !districtsForSelectedState.some((district) => district.id === selectedDistrictId)) {
+      setSelectedDistrictId('');
+    }
+  }, [selectedStateCode, selectedDistrictId, districtsForSelectedState]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -504,21 +516,16 @@ export const MapsTrackingPage: React.FC = () => {
   }, [addIncident, updateIncident]);
 
   // Derived filtered active incidents
-  const activeIncidents = useMemo(
-    () => incidents.filter((i) => {
-      if (i.status === 'resolved') return false;
-      if (currentUser?.stateAssigned && currentUser.commandLevel !== 'national' && i.location.state.toLowerCase() !== currentUser.stateAssigned.toLowerCase()) return false;
-      if (currentUser?.districtAssigned && currentUser.commandLevel === 'district' && i.location.district.toLowerCase() !== currentUser.districtAssigned.toLowerCase()) return false;
-      if (selectedState && i.location.state.toLowerCase() !== selectedState.name.toLowerCase()) return false;
-      const selectedDistrict = districtsForSelectedState.find((district) => district.id === selectedDistrictId);
-      if (selectedDistrict && i.location.district.toLowerCase() !== selectedDistrict.name.toLowerCase()) return false;
-      if (incidentStatus !== 'all' && i.status !== incidentStatus) return false;
-      const query = incidentSearch.trim().toLowerCase();
-      if (!query) return true;
-      return `${i.id} ${i.title} ${i.location.state} ${i.location.district} ${i.location.area}`.toLowerCase().includes(query);
-    }),
-    [incidents, incidentSearch, incidentStatus, currentUser, selectedState, selectedDistrictId, districtsForSelectedState]
-  );
+  const activeIncidents = useMemo(() => {
+    const selectedDistrict = districtsForSelectedState.find((district) => district.id === selectedDistrictId);
+    return filterIncidents(incidents, {
+      state: selectedState?.name || (currentUser?.commandLevel !== 'national' ? currentUser?.stateAssigned : undefined),
+      district: selectedDistrict?.name || (currentUser?.commandLevel === 'district' ? currentUser.districtAssigned : undefined),
+      status: incidentStatus,
+      severity: incidentSeverity,
+      search: incidentSearch,
+    }).filter((incident) => incident.status !== 'resolved' && incident.status !== 'closed');
+  }, [incidents, incidentSearch, incidentStatus, incidentSeverity, currentUser, selectedState, selectedDistrictId, districtsForSelectedState]);
 
   const exportFilteredIncidents = useCallback(() => {
     const rows = [['id', 'title', 'state', 'district', 'area', 'severity', 'status']];
@@ -613,14 +620,16 @@ export const MapsTrackingPage: React.FC = () => {
               <Search size={13} className="pointer-events-none absolute left-2 top-2 text-slate-500" />
               <input value={incidentSearch} onChange={(event) => setIncidentSearch(event.target.value)} placeholder="Search incident, district..." className="w-full rounded border border-white/10 bg-[#0D1828] py-1.5 pl-7 pr-2 text-[11px] text-slate-200 outline-none placeholder:text-slate-600 focus:border-cyan-400" />
             </label>
-            <select value={incidentStatus} onChange={(event) => setIncidentStatus(event.target.value)} className="mt-2 w-full rounded border border-white/10 bg-[#0D1828] px-2 py-1.5 text-[11px] text-slate-200 outline-none focus:border-cyan-400" aria-label="Filter incidents by status">
-              <option value="all">All active statuses</option>
-              <option value="reported">Reported</option>
-              <option value="verified">Verified</option>
-              <option value="responding">Responding</option>
-              <option value="evacuation">Evacuation</option>
-              <option value="assessed">Assessed</option>
-            </select>
+            <div className="mt-2 grid grid-cols-2 gap-1.5">
+              <select value={incidentStatus} onChange={(event) => setIncidentStatus(event.target.value)} className="w-full rounded border border-white/10 bg-[#0D1828] px-2 py-1.5 text-[11px] text-slate-200 outline-none focus:border-cyan-400" aria-label="Filter incidents by status">
+                <option value="all">All statuses</option>
+                {INCIDENT_STATUSES.filter((status) => status !== 'resolved' && status !== 'closed').map((status) => <option key={status} value={status}>{status[0].toUpperCase() + status.slice(1)}</option>)}
+              </select>
+              <select value={incidentSeverity} onChange={(event) => setIncidentSeverity(event.target.value)} className="w-full rounded border border-white/10 bg-[#0D1828] px-2 py-1.5 text-[11px] text-slate-200 outline-none focus:border-cyan-400" aria-label="Filter incidents by severity">
+                <option value="all">All severity</option>
+                {INCIDENT_SEVERITIES.map((severity) => <option key={severity} value={severity}>{severity[0].toUpperCase() + severity.slice(1)}</option>)}
+              </select>
+            </div>
             <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
               <div className="rounded bg-red-500/10 px-1 py-1.5"><p className="text-sm font-black text-red-300">{activeIncidents.filter((i) => i.severity === 'critical').length}</p><p className="text-[9px] text-slate-500">Critical</p></div>
               <div className="rounded bg-amber-500/10 px-1 py-1.5"><p className="text-sm font-black text-amber-300">{activeIncidents.filter((i) => i.severity === 'high').length}</p><p className="text-[9px] text-slate-500">High</p></div>
@@ -1159,7 +1168,7 @@ export const MapsTrackingPage: React.FC = () => {
 
           {/* ─── Layer 5: Active Incidents ─── */}
           {layerGroups.incidents &&
-            activeIncidents.map((inc) => {
+            activeIncidents.filter(hasValidIncidentCoordinates).map((inc) => {
               const color = SEVERITY_COLORS[inc.severity];
               const isCritical = inc.severity === 'critical';
               const radius = isCritical ? 14 : inc.severity === 'high' ? 11 : 8;

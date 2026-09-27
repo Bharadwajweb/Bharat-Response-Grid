@@ -16,8 +16,9 @@ async function startServer() {
   const HOST = '0.0.0.0';
 
   // Middlewares
-  app.use(cors());
-  app.use(express.json());
+  const allowedOrigin = process.env.CORS_ORIGIN;
+  app.use(cors({ origin: allowedOrigin || true, credentials: Boolean(allowedOrigin) }));
+  app.use(express.json({ limit: '256kb' }));
 
   // Mount API router
   app.use('/api', apiRouter);

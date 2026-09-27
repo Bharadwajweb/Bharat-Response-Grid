@@ -8,6 +8,7 @@ import { computeDecisionIntelligence } from '../services/decisionEngine';
 import { generateRiskAwareRoutes } from '../services/routingEngine';
 import { runResearchBenchmark, PRESET_BENCHMARK_SCENARIOS } from '../services/researchService';
 import { broadcastEvent } from '../websocket/wsHandler';
+import { INCIDENT_SEVERITIES, INCIDENT_STATUSES, validateIncident } from '../../data/incidentValidation';
 
 export const apiRouter = Router();
 
@@ -141,14 +142,22 @@ apiRouter.get('/auth/me', (req, res) => {
 
 // ─── 3. Incidents Endpoints ───
 apiRouter.get('/incidents', (req, res) => {
-  const { severity, status, type } = req.query;
+  const { severity, status, type, state, district, search } = req.query;
+  if (severity && severity !== 'all' && !INCIDENT_SEVERITIES.includes(String(severity) as typeof INCIDENT_SEVERITIES[number])) {
+    return res.status(400).json({ status: 'error', message: 'Invalid severity filter' });
+  }
+  if (status && status !== 'all' && !INCIDENT_STATUSES.includes(String(status) as typeof INCIDENT_STATUSES[number])) {
+    return res.status(400).json({ status: 'error', message: 'Invalid status filter' });
+  }
   let result = db.incidents;
 
-  if (severity && severity !== 'all') {
-    result = result.filter((i) => i.severity === severity);
-  }
-  if (status && status !== 'all') {
-    result = result.filter((i) => i.status === status);
+  if (severity && severity !== 'all') result = result.filter((i) => i.severity === severity);
+  if (status && status !== 'all') result = result.filter((i) => i.status === status);
+  if (state) result = result.filter((i) => i.location.state.toLowerCase() === String(state).trim().toLowerCase());
+  if (district) result = result.filter((i) => i.location.district.toLowerCase() === String(district).trim().toLowerCase());
+  if (search) {
+    const query = String(search).trim().toLowerCase();
+    result = result.filter((i) => `${i.id} ${i.title} ${i.location.state} ${i.location.district} ${i.location.area}`.toLowerCase().includes(query));
   }
   if (type && type !== 'all') {
     result = result.filter((i) => i.type === type);
@@ -194,6 +203,9 @@ apiRouter.post('/incidents', (req, res) => {
       },
     ],
   };
+
+  const validationErrors = validateIncident(newIncident);
+  if (validationErrors.length) return res.status(400).json({ status: 'error', message: 'Invalid incident payload', errors: validationErrors });
 
   db.incidents.unshift(newIncident);
   broadcastEvent('incident:created', newIncident);
