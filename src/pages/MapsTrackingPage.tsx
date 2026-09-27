@@ -28,6 +28,8 @@ import {
   HeartPulse,
   Building,
   RefreshCw,
+  Search,
+  Download,
 } from 'lucide-react';
 import { useIncidentStore } from '../store/incidentStore';
 import { SeverityBadge, StatusBadge, TypeBadge } from '../components/ui/Badge';
@@ -247,6 +249,8 @@ export const MapsTrackingPage: React.FC = () => {
   const [tileProvider, setTileProvider] = useState<'osm' | 'dark' | 'satellite'>('osm');
   const [selectedStateCode, setSelectedStateCode] = useState('');
   const [selectedDistrictId, setSelectedDistrictId] = useState('');
+  const [incidentSearch, setIncidentSearch] = useState('');
+  const [incidentStatus, setIncidentStatus] = useState('all');
   const statesAndUTs = getAllStatesAndUTs();
   const selectedState = statesAndUTs.find((state) => state.code === selectedStateCode);
   const districtsForSelectedState = selectedState ? getDistrictsForState(selectedState.code) : [];
@@ -490,9 +494,35 @@ export const MapsTrackingPage: React.FC = () => {
 
   // Derived filtered active incidents
   const activeIncidents = useMemo(
-    () => incidents.filter((i) => i.status !== 'resolved'),
-    [incidents]
+    () => incidents.filter((i) => {
+      if (i.status === 'resolved') return false;
+      if (incidentStatus !== 'all' && i.status !== incidentStatus) return false;
+      const query = incidentSearch.trim().toLowerCase();
+      if (!query) return true;
+      return `${i.id} ${i.title} ${i.location.state} ${i.location.district} ${i.location.area}`.toLowerCase().includes(query);
+    }),
+    [incidents, incidentSearch, incidentStatus]
   );
+
+  const exportFilteredIncidents = useCallback(() => {
+    const rows = [['id', 'title', 'state', 'district', 'area', 'severity', 'status']];
+    activeIncidents.forEach((incident) => rows.push([
+      incident.id,
+      incident.title,
+      incident.location.state,
+      incident.location.district,
+      incident.location.area,
+      incident.severity,
+      incident.status,
+    ]));
+    const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'brg-filtered-incidents.csv';
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }, [activeIncidents]);
 
   return (
     <div
@@ -535,6 +565,34 @@ export const MapsTrackingPage: React.FC = () => {
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-cyan-400" style={{ width: `${geographyCoveragePercent}%` }} /></div>
             <div className="mt-2 flex justify-between text-[10px] text-slate-400"><span>{geographyCoverage.states} states · {geographyCoverage.unionTerritories} UTs</span><span>{geographyCoverage.loadedDistricts}/{geographyCoverage.officialDistricts} districts</span></div>
             {geographyCoverage.datasetIncomplete && <p className="mt-1.5 text-[10px] leading-snug text-amber-300">Verified districts are available for drill-down; remaining official districts are flagged partial.</p>}
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-300">Response dashboard</p>
+                <p className="mt-0.5 text-[10px] text-slate-500">Filtered operational view</p>
+              </div>
+              <button onClick={exportFilteredIncidents} className="rounded border border-white/15 p-1.5 text-slate-300 hover:bg-white/10" title="Export filtered incidents CSV" aria-label="Export filtered incidents CSV">
+                <Download size={13} />
+              </button>
+            </div>
+            <label className="relative block">
+              <Search size={13} className="pointer-events-none absolute left-2 top-2 text-slate-500" />
+              <input value={incidentSearch} onChange={(event) => setIncidentSearch(event.target.value)} placeholder="Search incident, district..." className="w-full rounded border border-white/10 bg-[#0D1828] py-1.5 pl-7 pr-2 text-[11px] text-slate-200 outline-none placeholder:text-slate-600 focus:border-cyan-400" />
+            </label>
+            <select value={incidentStatus} onChange={(event) => setIncidentStatus(event.target.value)} className="mt-2 w-full rounded border border-white/10 bg-[#0D1828] px-2 py-1.5 text-[11px] text-slate-200 outline-none focus:border-cyan-400" aria-label="Filter incidents by status">
+              <option value="all">All active statuses</option>
+              <option value="reported">Reported</option>
+              <option value="verified">Verified</option>
+              <option value="in_progress">In progress</option>
+            </select>
+            <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
+              <div className="rounded bg-red-500/10 px-1 py-1.5"><p className="text-sm font-black text-red-300">{activeIncidents.filter((i) => i.severity === 'critical').length}</p><p className="text-[9px] text-slate-500">Critical</p></div>
+              <div className="rounded bg-amber-500/10 px-1 py-1.5"><p className="text-sm font-black text-amber-300">{activeIncidents.filter((i) => i.severity === 'high').length}</p><p className="text-[9px] text-slate-500">High</p></div>
+              <div className="rounded bg-cyan-500/10 px-1 py-1.5"><p className="text-sm font-black text-cyan-300">{activeIncidents.length}</p><p className="text-[9px] text-slate-500">Showing</p></div>
+            </div>
+            {!loadingInitialData && activeIncidents.length === 0 && <p className="mt-2 rounded border border-dashed border-white/10 px-2 py-2 text-[10px] text-slate-500">No incidents match these filters.</p>}
           </div>
 
           {/* Group 1: Intelligence Layers */}
