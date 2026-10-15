@@ -171,6 +171,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onClose }) =
                   key={to}
                   to={to}
                   end={to === '/'}
+                  onClick={onClose}
                   className={({ isActive }) =>
                     `flex items-center gap-2.5 rounded-lg transition-all duration-150 font-medium text-xs group relative
                     ${collapsed ? 'justify-center px-0 py-2 mx-auto w-10' : 'px-2.5 py-1.5'}
@@ -210,6 +211,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onClose }) =
         <div className="pt-2 border-t border-white/8">
           <NavLink
             to="/citizen"
+            onClick={onClose}
             className={({ isActive }) =>
               `flex items-center gap-2.5 rounded-lg transition-all text-xs font-semibold
               ${collapsed ? 'justify-center px-0 py-2 mx-auto w-10' : 'px-2.5 py-2'}
