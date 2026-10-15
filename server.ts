@@ -39,6 +39,14 @@ async function startServer() {
       // available at /ws.
       server: { middlewareMode: true, host: HOST, port: PORT, hmr: false },
       appType: 'spa',
+      plugins: [{
+        name: 'disable-hosted-vite-client',
+        transformIndexHtml(html: string) {
+          return html
+            .replace(/<script[^>]+src=["']\/@vite\/client["'][^>]*><\/script>/g, '')
+            .replace(/<script[^>]+src=["']\/\@vite\/client["'][^>]*><\/script>/g, '');
+        },
+      }],
     });
     // Register the application socket after Vite has installed its HMR upgrade
     // listener. The /ws-only guard then leaves Vite's upgrade path untouched.
