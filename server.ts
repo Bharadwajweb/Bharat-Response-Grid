@@ -48,6 +48,13 @@ async function startServer() {
         },
       }],
     });
+    // Hosted previews do not provide a reachable Vite HMR socket. Catch the
+    // client entry before Vite middleware can serve it, so no browser-side HMR
+    // WebSocket is created while the application socket at /ws stays active.
+    app.get(['/@vite/client', '/@vite/client/'], (_req, res) => {
+      res.type('application/javascript').send('');
+    });
+
     // Register the application socket after Vite has installed its HMR upgrade
     // listener. The /ws-only guard then leaves Vite's upgrade path untouched.
     setupWebSocket(server);
