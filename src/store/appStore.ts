@@ -49,30 +49,21 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  currentUser: {
-    id: 'USR-001',
-    name: 'Adv. Priya Menon',
-    email: 'priya.menon@ndma.gov.in',
-    role: 'national_admin',
-    commandLevel: 'national',
-    avatarInitials: 'PM',
-    status: 'active',
-    lastActive: 'now',
-  },
+  currentUser: null,
   isAuthenticated: false,
   theme: 'dark',
   language: 'en',
   sidebarCollapsed: false,
   sidebarMobileOpen: false,
-  connectionStatus: 'connected',
+  connectionStatus: 'disconnected',
   connectionBannerVisible: false,
   activeCommandLevel: 'national',
-  activeCommandLabel: 'National Command',
+  activeCommandLabel: 'Command workspace',
   debugPanelVisible: false,
-  notificationCount: 5,
-  onlineResponders: 47,
+  notificationCount: 0,
+  onlineResponders: 0,
 
-  setCurrentUser: (user) => set({ currentUser: user }),
+  setCurrentUser: (user) => set({ currentUser: user, isAuthenticated: Boolean(user) }),
   setAuthenticated: (v) => set({ isAuthenticated: v }),
   setTheme: (t) => {
     set({ theme: t });

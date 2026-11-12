@@ -1,238 +1,218 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Shield, Eye, EyeOff, Wifi, Lock, Mail, AlertCircle, ArrowRight, Users } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import useSWR, { useSWRConfig } from 'swr';
+import { Activity, ArrowRight, Eye, EyeOff, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { authClient, getAuthToken } from '../services/neonAuth';
+import { brgApi, getCurrentUser, recordAuthEvent, type ApiUser } from '../services/brgApi';
 import { useAppStore } from '../store/appStore';
-
-const AUTHORIZED_OFFICERS = [
-  { name: 'NDMA Director (National)', email: 'director@ndma.gov.in', password: 'admin', role: 'national_admin', initials: 'ND', commandLevel: 'national', stateAssigned: undefined },
-  { name: 'AP SDMA Officer (State)', email: 'officer@apsdma.ap.gov.in', password: 'admin', role: 'state_admin', initials: 'AP', commandLevel: 'state', stateAssigned: 'Andhra Pradesh' },
-  { name: 'Vizag Collector (District)', email: 'collector@vizag.ap.gov.in', password: 'admin', role: 'district_admin', initials: 'VC', commandLevel: 'district', stateAssigned: 'Andhra Pradesh', districtAssigned: 'Visakhapatnam' },
-  { name: 'NDRF 10th Bn Commandant', email: 'commandant@ndrf.gov.in', password: 'admin', role: 'responder', initials: 'NC', commandLevel: 'state', stateAssigned: 'Andhra Pradesh' },
-];
+import '../types';
+import './LoginPage.css';
 
 export const LoginPage: React.FC = () => {
-  const { t } = useTranslation();
   const navigate = useNavigate();
-  const { setAuthenticated, setCurrentUser } = useAppStore();
+  const location = useLocation();
+  const { mutate } = useSWRConfig();
+  const setCurrentUser = useAppStore((state) => state.setCurrentUser);
+  const { data: activeUser, isLoading: checkingSession } = useSWR<ApiUser>('brg-current-user', getCurrentUser, {
+    revalidateOnFocus: false,
+    shouldRetryOnError: false,
+    dedupingInterval: 30_000,
+  });
+  const { data: systemEnvelope } = useSWR('system-status', brgApi.systemStatus, {
+    refreshInterval: 15_000,
+    revalidateOnFocus: true,
+    shouldRetryOnError: false,
+  });
 
-  const [email, setEmail] = useState('director@ndma.gov.in');
-  const [password, setPassword] = useState('admin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [message, setMessage] = useState<{ kind: 'error' | 'success'; text: string } | null>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+  const returnTo = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/';
+  if (activeUser) return <Navigate to={returnTo} replace />;
 
-    await new Promise((r) => setTimeout(r, 600));
-
-    const account = AUTHORIZED_OFFICERS.find((a) => a.email.toLowerCase() === email.toLowerCase());
-    if (account) {
-      setCurrentUser({
-        id: `USR-${account.initials}`,
-        name: account.name,
-        email: account.email,
-        role: account.role as any,
-        commandLevel: account.commandLevel as any,
-        stateAssigned: account.stateAssigned,
-        districtAssigned: (account as any).districtAssigned,
-        avatarInitials: account.initials,
-        status: 'active',
-        lastActive: 'now',
-      });
-      setAuthenticated(true);
-      navigate('/');
-    } else if (email && password) {
-      // Allow general government officer login
-      const namePart = email.split('@')[0].replace('.', ' ');
-      setCurrentUser({
-        id: `USR-${Date.now().toString().slice(-4)}`,
-        name: namePart.charAt(0).toUpperCase() + namePart.slice(1),
-        email,
-        role: email.includes('director') ? 'national_admin' : 'state_admin',
-        commandLevel: email.includes('district') ? 'district' : 'national',
-        avatarInitials: namePart.substring(0, 2).toUpperCase(),
-        status: 'active',
-        lastActive: 'now',
-      });
-      setAuthenticated(true);
-      navigate('/');
-    } else {
-      setError('Please provide valid official credentials.');
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!authClient) {
+      setMessage({ kind: 'error', text: 'Neon Auth is not configured for this deployment.' });
+      return;
     }
-    setLoading(false);
+
+    setSubmitting(true);
+    setMessage(null);
+    try {
+      const result = await authClient.signIn.email({ email: email.trim(), password, rememberMe });
+      if (result.error) throw new Error(result.error.message || 'Email or password could not be verified.');
+
+      const token = await getAuthToken();
+      if (!token) throw new Error('Sign-in completed, but the secure API session could not be established.');
+
+      const user = await getCurrentUser();
+      setCurrentUser(user);
+      await mutate('brg-current-user', user, { revalidate: false });
+      await recordAuthEvent('login');
+      navigate(returnTo, { replace: true });
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : '';
+      const originHint = /origin|cors|fetch/i.test(messageText)
+        ? ' This deployment origin may need to be added to Neon Auth trusted origins.'
+        : '';
+      setMessage({ kind: 'error', text: `${messageText || 'Unable to sign in. Check your credentials and try again.'}${originHint}` });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleQuickLogin = (account: typeof AUTHORIZED_OFFICERS[0]) => {
-    setEmail(account.email);
-    setPassword(account.password);
+  const handlePasswordReset = async () => {
+    if (!email.trim()) {
+      setMessage({ kind: 'error', text: 'Enter your account email first.' });
+      return;
+    }
+    if (!authClient) {
+      setMessage({ kind: 'error', text: 'Password recovery is unavailable because Neon Auth is not configured.' });
+      return;
+    }
+
+    setResetting(true);
+    setMessage(null);
+    try {
+      const result = await authClient.requestPasswordReset({
+        email: email.trim(),
+        redirectTo: `${window.location.origin}/login?password-reset=complete`,
+      });
+      if (result.error) throw new Error(result.error.message || 'Password recovery could not be started.');
+      setMessage({ kind: 'success', text: 'If the account can receive recovery email, instructions have been sent.' });
+    } catch {
+      setMessage({ kind: 'error', text: 'Password recovery could not be started. Contact your organization administrator.' });
+    } finally {
+      setResetting(false);
+    }
   };
+
+  const status = systemEnvelope?.data;
+  const overall = status?.overall ?? 'OFFLINE';
+  const statusLabel = checkingSession ? 'CHECKING SESSION' : overall;
 
   return (
-    <div className="min-h-screen bg-[#07111F] flex flex-col items-center justify-center px-4 py-12 relative overflow-hidden">
-      {/* Background grid */}
-      <div
-        className="absolute inset-0 opacity-[0.025]"
-        style={{
-          backgroundImage: `linear-gradient(rgba(59,130,246,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(59,130,246,0.5) 1px, transparent 1px)`,
-          backgroundSize: '60px 60px',
-        }}
-      />
-      {/* Background gradient blob */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
+    <main className="brg-login">
+      <section className="brg-login__visual" aria-label="Bharat Response Grid">
+        <div className="brg-login__network" aria-hidden="true">
+          <div className="brg-login__network-ring" />
+          <div className="brg-login__network-ring brg-login__network-ring--inner" />
+          <div className="brg-login__network-path" />
+          <div className="brg-login__network-path brg-login__network-path--second" />
+          <span className="brg-login__network-node" />
+          <span className="brg-login__network-node" />
+          <span className="brg-login__network-node" />
+          <span className="brg-login__network-node" />
+        </div>
 
-      <div className="w-full max-w-md relative">
-        {/* Brand */}
-        <motion.div
-          initial={{ opacity: 0, y: -16 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
-        >
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600/15 border border-blue-500/25 mb-5 shadow-xl shadow-blue-500/10">
-            <Shield size={32} className="text-blue-400" />
+        <div className="brg-login__brand">
+          <div className="brg-login__brand-mark"><ShieldCheck size={23} /></div>
+          <div>
+            <p className="brg-login__brand-title">BHARAT RESPONSE GRID</p>
+            <p className="brg-login__brand-subtitle">National emergency coordination</p>
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">{t('auth.title')}</h1>
-          <p className="text-sm text-slate-500 mt-1.5 tracking-widest uppercase">{t('auth.subtitle')}</p>
-        </motion.div>
+        </div>
 
-        {/* Login Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-[#0D1828] border border-white/8 rounded-xl shadow-2xl overflow-hidden"
-        >
-          {/* Status bar */}
-          <div className="flex items-center justify-center gap-2 px-4 py-2 bg-green-500/8 border-b border-green-500/15">
-            <Wifi size={12} className="text-green-400" />
-            <span className="text-xs font-semibold text-green-400 uppercase tracking-widest">{t('auth.status')}</span>
+        <div className="brg-login__hero">
+          <div className="brg-login__eyebrow"><span className="brg-login__pulse" /> Situational awareness · coordinated response</div>
+          <h1>One grid.<br />A clearer response.</h1>
+          <p>Secure access for authorized command teams coordinating verified information, resources and emergency response across jurisdictions.</p>
+          <div className="brg-login__stages" aria-label="Response workflow">
+            <span className="brg-login__stage">Situation</span>
+            <span className="brg-login__stage">Analysis</span>
+            <span className="brg-login__stage">Coordination</span>
+            <span className="brg-login__stage">Response</span>
           </div>
+        </div>
 
-          <form onSubmit={handleLogin} className="px-6 py-6 space-y-4">
-            {/* Email */}
-            <div className="space-y-1.5">
-              <label htmlFor="email" className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                <Mail size={11} /> {t('auth.email')}
-              </label>
+        <footer className="brg-login__footer">
+          <span>AUTHORIZED ACCESS ONLY</span>
+          <span>BRG · Secure command workspace</span>
+        </footer>
+      </section>
+
+      <section className="brg-login__panel" aria-labelledby="login-title">
+        <div className="brg-login__card">
+          <div className="brg-login__kicker">Secure access portal</div>
+          <h2 id="login-title">Sign in to BRG</h2>
+          <p className="brg-login__description">Use the account provisioned for your response organization. Your access level is assigned by an administrator.</p>
+
+          <form onSubmit={handleSubmit} aria-describedby="login-help" noValidate>
+            <div className="brg-login__field">
+              <label htmlFor="brg-email">Work email</label>
               <input
-                id="email"
+                id="brg-email"
                 type="email"
-                autoComplete="email"
+                name="email"
+                autoComplete="username"
+                inputMode="email"
+                maxLength={320}
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-[#132238] border border-white/10 rounded-lg text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 px-3 py-2.5 transition-all"
-                placeholder="official@gov.in"
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="name@organization.gov.in"
+                disabled={submitting || resetting}
               />
             </div>
 
-            {/* Password */}
-            <div className="space-y-1.5">
-              <label htmlFor="password" className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                <Lock size={11} /> {t('auth.password')}
-              </label>
-              <div className="relative">
+            <div className="brg-login__field">
+              <label htmlFor="brg-password">Password</label>
+              <div className="brg-login__password-wrap">
                 <input
-                  id="password"
+                  id="brg-password"
                   type={showPassword ? 'text' : 'password'}
+                  name="password"
                   autoComplete="current-password"
+                  minLength={8}
                   required
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#132238] border border-white/10 rounded-lg text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 px-3 py-2.5 pr-10 transition-all"
-                  placeholder="••••••••"
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Enter your password"
+                  disabled={submitting || resetting}
                 />
                 <button
+                  className="brg-login__toggle"
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                  onClick={() => setShowPassword((visible) => !visible)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
                 >
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
 
-            {/* Error */}
-            {error && (
-              <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/25">
-                <AlertCircle size={14} className="text-red-400 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-red-300">{error}</p>
-              </div>
-            )}
-
-            {/* Forgot */}
-            <div className="flex justify-end">
-              <button type="button" className="text-xs text-blue-400 hover:text-blue-300 transition-colors">{t('auth.forgot')}</button>
-            </div>
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20"
-            >
-              {loading ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  {t('auth.login')}
-                  <ArrowRight size={15} />
-                </>
-              )}
-            </button>
-
-            {/* Divider */}
-            <div className="flex items-center gap-2">
-              <div className="flex-1 h-px bg-white/8" />
-              <span className="text-xs text-slate-600 uppercase tracking-wider">or</span>
-              <div className="flex-1 h-px bg-white/8" />
-            </div>
-
-            {/* Citizen button */}
-            <button
-              type="button"
-              onClick={() => navigate('/citizen')}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-white/5 hover:bg-white/8 text-slate-300 text-sm font-medium border border-white/10 transition-all"
-            >
-              <Users size={14} />
-              {t('auth.citizen')}
-            </button>
-          </form>
-        </motion.div>
-
-        {/* Authorized Command Profiles */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="mt-4"
-        >
-          <p className="text-xs text-center text-slate-500 mb-2 uppercase tracking-wider font-semibold">
-            Authorized Command Profiles (Fast Access)
-          </p>
-          <div className="flex gap-2 justify-center flex-wrap">
-            {AUTHORIZED_OFFICERS.map((acc) => (
-              <button
-                key={acc.email}
-                onClick={() => handleQuickLogin(acc)}
-                className="text-xs px-3 py-1.5 rounded-md bg-white/5 border border-white/8 text-slate-300 hover:text-white hover:bg-white/10 hover:border-blue-500/40 transition-all"
-              >
-                {acc.name}
+            <div className="brg-login__form-meta">
+              <label className="brg-login__remember"><input type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} /> Keep me signed in</label>
+              <button className="brg-login__link" type="button" onClick={handlePasswordReset} disabled={submitting || resetting}>
+                {resetting ? 'Sending…' : 'Forgot password?'}
               </button>
-            ))}
-          </div>
-        </motion.div>
+            </div>
 
-        {/* Footer */}
-        <p className="text-center text-xs text-slate-700 mt-6">
-          National Disaster Management Authority · Government of India
-        </p>
-      </div>
-    </div>
+            <button className="brg-login__submit" type="submit" disabled={submitting || resetting}>
+              {submitting ? 'Verifying secure session…' : <><LockKeyhole size={15} /> Sign in securely <ArrowRight size={15} /></>}
+            </button>
+            {message && <p className={`brg-login__message brg-login__message--${message.kind}`} role={message.kind === 'error' ? 'alert' : 'status'}>{message.text}</p>}
+          </form>
+
+          <p id="login-help" className="brg-login__access-note"><ShieldCheck size={14} aria-hidden="true" /> Accounts and command roles are managed by Neon Auth and BRG administrators. No demo credentials or client-side role selection are available.</p>
+
+          <div className="brg-login__service" role="status" aria-live="polite">
+            <span className={`brg-login__service-dot ${overall === 'ONLINE' ? 'brg-login__service-dot--online' : overall === 'DEGRADED' ? 'brg-login__service-dot--degraded' : ''}`} />
+            <Activity size={14} aria-hidden="true" />
+            <span>BRG service status</span>
+            <strong>{statusLabel}</strong>
+          </div>
+
+          <p className="brg-login__citizen-link">Need to report an emergency? <Link to="/citizen">Open the Citizen Safety Portal</Link></p>
+        </div>
+      </section>
+    </main>
   );
 };

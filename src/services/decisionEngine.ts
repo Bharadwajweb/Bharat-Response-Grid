@@ -130,7 +130,11 @@ export function decisionAuditEvent(output: DecisionOutput) { return { action: 'r
 
 export function supportsLiveBackend() { return Boolean(import.meta.env.VITE_API_BASE_URL); }
 
-export function apiBaseUrl() { return import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'; }
+export function apiBaseUrl() {
+  const configured = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (configured) return configured.replace(/\\/+$/, '');
+  return import.meta.env.DEV ? 'http://localhost:8000' : '';
+}
 
 export function dataMode() { return supportsLiveBackend() ? 'LIVE' : 'SIMULATION'; }
 

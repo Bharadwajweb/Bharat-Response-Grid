@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@neon/auth": "^0.8.2",
     "chart.js": "^4.5.1",
     "framer-motion": "^13.4.0",
     "i18next": "^26.4.2",
@@ -21,6 +22,7 @@
     "react-i18next": "^17.0.14",
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.18.4",
+    "swr": "^2.5.1",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

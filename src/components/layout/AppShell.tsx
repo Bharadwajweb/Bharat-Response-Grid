@@ -1,36 +1,74 @@
-import React from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { useCallback, useEffect } from 'react';
+import { Link, Outlet } from 'react-router-dom';
+import useSWR from 'swr';
 import { Sidebar, MobileSidebar } from './Sidebar';
 import { TopNavbar } from './TopNavbar';
-import { ConnectionBanner } from '../ui/Overlay';
 import { useAppStore } from '../../store/appStore';
+import { brgApi, connectToEvents, type SystemStatus } from '../../services/brgApi';
+import { brgSocket } from '../../utils/socket';
+
+const DataModeBanner: React.FC = () => {
+  const { data } = useSWR<SystemStatus>('system-status', async () => (await brgApi.systemStatus()).data, {
+    refreshInterval: 15_000,
+    revalidateOnFocus: true,
+    shouldRetryOnError: false,
+  });
+  const overall = data?.overall ?? 'OFFLINE';
+  const style = overall === 'ONLINE'
+    ? 'border-emerald-400/20 bg-emerald-400/[0.05] text-emerald-200'
+    : overall === 'DEGRADED'
+      ? 'border-amber-400/20 bg-amber-400/[0.05] text-amber-100'
+      : 'border-rose-400/20 bg-rose-400/[0.05] text-rose-200';
+  const message = overall === 'ONLINE'
+    ? 'SYSTEM ONLINE · Check each panel’s source label and timestamp before acting.'
+    : overall === 'DEGRADED'
+      ? 'SYSTEM DEGRADED · Verify source status; some feeds or operational records are unavailable.'
+      : 'BACKEND OFFLINE · Dashboard sample content is not operational data.';
+
+  return (
+    <div className={`flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2 text-[10px] font-semibold tracking-wide sm:px-6 ${style}`} role="status" aria-live="polite">
+      <span>{message}</span>
+      <Link to="/data-sources" className="underline decoration-current/40 underline-offset-2 hover:decoration-current">View source health</Link>
+    </div>
+  );
+};
 
 export const AppShell: React.FC = () => {
-  const { connectionStatus, connectionBannerVisible, setConnectionStatus } = useAppStore();
+  const setConnectionStatus = useAppStore((state) => state.setConnectionStatus);
+  const { data: ticket, mutate: refreshTicket } = useSWR('brg-websocket-ticket', brgApi.webSocketTicket, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    shouldRetryOnError: false,
+    dedupingInterval: 3_000,
+  });
+
+  const onEvent = useCallback((event: unknown) => {
+    if (!event || typeof event !== 'object') return;
+    const message = event as { type?: unknown; data?: unknown };
+    if (typeof message.type === 'string') brgSocket.emit(message.type, message.data);
+  }, []);
+
+  const onSocketStatus = useCallback((connected: boolean) => {
+    setConnectionStatus(connected ? 'connected' : 'disconnected');
+    if (!connected) window.setTimeout(() => void refreshTicket(), 2_000);
+  }, [refreshTicket, setConnectionStatus]);
+
+  useEffect(() => {
+    if (!ticket?.ticket) {
+      setConnectionStatus('disconnected');
+      return;
+    }
+    return connectToEvents(ticket.ticket, onEvent, onSocketStatus);
+  }, [ticket?.ticket, onEvent, onSocketStatus, setConnectionStatus]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#07111F]">
-      {/* Connection banner */}
-      <ConnectionBanner
-        status={connectionStatus}
-        visible={connectionBannerVisible}
-        onDismiss={() => setConnectionStatus('connected')}
-      />
-
-      {/* Desktop sidebar */}
       <Sidebar />
-
-      {/* Mobile sidebar drawer */}
       <MobileSidebar />
-
-      {/* Main content area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <TopNavbar />
-        <main
-          className="flex-1 overflow-y-auto overflow-x-hidden"
-          id="main-content"
-          tabIndex={-1}
-        >
+        <DataModeBanner />
+        <main className="flex-1 overflow-x-hidden overflow-y-auto" id="main-content" tabIndex={-1}>
           <Outlet />
         </main>
       </div>
