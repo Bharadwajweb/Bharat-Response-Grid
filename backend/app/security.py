@@ -121,11 +121,21 @@ async def _profile_access(session: AsyncSession | None, claims: dict[str, Any]) 
         )
         rows = (await session.execute(statement)).all()
         if rows:
-            roles = tuple(sorted({row.name for row in rows}))
+            assigned_roles = {row.name for row in rows}
+            claimed_roles = set(_claim_roles(claims))
+            missing_roles = claimed_roles - assigned_roles
+            if missing_roles:
+                profile = await session.scalar(select(UserProfile).where(UserProfile.auth_user_id == auth_user_id))
+                if profile is not None:
+                    for role_name in missing_roles:
+                        if await session.get(Role, role_name) is not None:
+                            session.add(UserRoleAssignment(user_id=profile.id, role_name=role_name))
+                    await session.commit()
+            roles = assigned_roles | claimed_roles
             priority = ("CENTRAL_AUTHORITY", "STATE_AUTHORITY", "DISTRICT_OFFICER", "EMERGENCY_OFFICER", "CITIZEN")
             primary_role = next((role for role in priority if role in roles), "CITIZEN")
             primary_assignment = next((row for row in rows if row.name == primary_role), rows[0])
-            return roles, primary_assignment.state_scope, primary_assignment.district_scope
+            return tuple(sorted(roles)), primary_assignment.state_scope, primary_assignment.district_scope
 
         profile = await session.scalar(select(UserProfile).where(UserProfile.auth_user_id == auth_user_id))
         if profile is None:
@@ -137,9 +147,9 @@ async def _profile_access(session: AsyncSession | None, claims: dict[str, Any]) 
             )
             session.add(profile)
             await session.flush()
-            citizen_role = await session.get(Role, "CITIZEN")
-            if citizen_role is not None:
-                session.add(UserRoleAssignment(user_id=profile.id, role_name="CITIZEN"))
+            for role_name in _claim_roles(claims):
+                if await session.get(Role, role_name) is not None:
+                    session.add(UserRoleAssignment(user_id=profile.id, role_name=role_name))
             await session.commit()
         else:
             profile.email = claims.get("email") or profile.email

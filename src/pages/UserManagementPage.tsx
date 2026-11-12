@@ -1,375 +1,83 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import {
-  Users, Plus, Search, MoreHorizontal, ShieldCheck, ShieldOff,
-  Trash2, Activity, Mail, UserCheck
-} from 'lucide-react';
-import { MOCK_USERS, MOCK_AUDIT_LOGS } from '../data/mockData';
-import { Badge } from '../components/ui/Badge';
-import { Button } from '../components/ui/Button';
-import { SearchInput, Input, Select } from '../components/ui/Input';
-import { UserAvatar } from '../components/ui/Overlay';
-import { ConfirmDialog, Modal, Tabs } from '../components/ui/Modal';
-import type { User, UserRole, CommandLevel } from '../types';
+import React, { useMemo, useState } from 'react';
+import useSWR from 'swr';
+import { Activity, Plus, RefreshCw, ShieldCheck, Users } from 'lucide-react';
+import { brgApi, type BRGRole } from '../services/brgApi';
+
+const roleOptions: Array<{ value: BRGRole; label: string }> = [
+  { value: 'CENTRAL_AUTHORITY', label: 'Central authority' },
+  { value: 'STATE_AUTHORITY', label: 'State authority' },
+  { value: 'DISTRICT_OFFICER', label: 'District officer' },
+  { value: 'EMERGENCY_OFFICER', label: 'Emergency officer' },
+  { value: 'CITIZEN', label: 'Citizen' },
+];
 
 export const UserManagementPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('users');
+  const [tab, setTab] = useState<'users' | 'audit'>('users');
   const [search, setSearch] = useState('');
-  const [confirmAction, setConfirmAction] = useState<{ type: 'suspend' | 'remove'; user: User } | null>(null);
-  const [users, setUsers] = useState<User[]>(MOCK_USERS);
-  const [addUserModalOpen, setAddUserModalOpen] = useState(false);
+  const [showAssign, setShowAssign] = useState(false);
+  const [userId, setUserId] = useState('');
+  const [role, setRole] = useState<BRGRole>('EMERGENCY_OFFICER');
+  const [stateScope, setStateScope] = useState('');
+  const [districtScope, setDistrictScope] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const { data: usersEnvelope, isLoading: usersLoading, mutate: refreshUsers } = useSWR('brg-admin-users', brgApi.adminUsers, { revalidateOnFocus: true, shouldRetryOnError: false });
+  const { data: auditEnvelope, isLoading: auditLoading, mutate: refreshAudit } = useSWR('brg-admin-audit', brgApi.adminAudit, { revalidateOnFocus: true, shouldRetryOnError: false });
+  const users = usersEnvelope?.data ?? [];
+  const audit = auditEnvelope?.data ?? [];
+  const filteredUsers = useMemo(() => users.filter((user) => `${user.name ?? ''} ${user.email ?? ''} ${user.id}`.toLowerCase().includes(search.toLowerCase())), [users, search]);
+  const needsState = role === 'STATE_AUTHORITY' || role === 'DISTRICT_OFFICER' || role === 'EMERGENCY_OFFICER';
+  const needsDistrict = role === 'DISTRICT_OFFICER';
 
-  // New User Form State
-  const [newUserForm, setNewUserForm] = useState({
-    name: '',
-    email: '',
-    role: 'responder' as UserRole,
-    commandLevel: 'state' as CommandLevel,
-    stateAssigned: 'Andhra Pradesh',
-    districtAssigned: '',
-  });
-
-  const filtered = users.filter((u) =>
-    !search ||
-    u.name.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const handleConfirm = () => {
-    if (!confirmAction) return;
-    if (confirmAction.type === 'suspend') {
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.id === confirmAction.user.id
-            ? { ...u, status: u.status === 'active' ? 'suspended' : 'active' }
-            : u
-        )
-      );
-    } else {
-      setUsers((prev) => prev.filter((u) => u.id !== confirmAction.user.id));
+  const assignRole = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!userId) return;
+    setError('');
+    setSaving(true);
+    try {
+      await brgApi.assignUserRole(userId, {
+        role,
+        ...(needsState ? { state_scope: stateScope.trim() } : {}),
+        ...(needsDistrict ? { district_scope: districtScope.trim() } : {}),
+      });
+      await Promise.all([refreshUsers(), refreshAudit()]);
+      setShowAssign(false);
+      setUserId('');
+      setStateScope('');
+      setDistrictScope('');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Role assignment could not be saved.');
+    } finally {
+      setSaving(false);
     }
-    setConfirmAction(null);
-  };
-
-  const handleAddUser = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newUserForm.name.trim() || !newUserForm.email.trim()) return;
-
-    const initials = newUserForm.name
-      .split(' ')
-      .map((p) => p[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase();
-
-    const createdUser: User = {
-      id: `USR-${Date.now().toString().slice(-4)}`,
-      name: newUserForm.name.trim(),
-      email: newUserForm.email.trim(),
-      role: newUserForm.role,
-      commandLevel: newUserForm.commandLevel,
-      stateAssigned: newUserForm.stateAssigned || undefined,
-      districtAssigned: newUserForm.districtAssigned || undefined,
-      avatarInitials: initials || 'OF',
-      status: 'active',
-      lastActive: 'Just now',
-    };
-
-    setUsers([createdUser, ...users]);
-    setNewUserForm({
-      name: '',
-      email: '',
-      role: 'responder',
-      commandLevel: 'state',
-      stateAssigned: 'Andhra Pradesh',
-      districtAssigned: '',
-    });
-    setAddUserModalOpen(false);
-  };
-
-  const ROLE_BADGES: Record<string, 'critical' | 'warning' | 'info' | 'success' | 'ghost'> = {
-    national_admin: 'critical',
-    state_admin: 'warning',
-    district_admin: 'info',
-    responder: 'success',
-    citizen: 'ghost',
   };
 
   return (
-    <div className="flex flex-col min-h-full">
-      <div className="px-6 py-5 border-b border-white/6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-              <Users size={20} className="text-blue-400" />
-              User & Officer Directory
-            </h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              {users.length} registered officers · {users.filter((u) => u.status === 'active').length} active
-            </p>
-          </div>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus size={14} />}
-            onClick={() => setAddUserModalOpen(true)}
-          >
-            Add Officer
-          </Button>
-        </div>
-      </div>
+    <main className="space-y-5 p-4 md:p-6">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-800 pb-5">
+        <div><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-sky-300"><Users size={14} /> Access control</p><h1 className="mt-2 text-2xl font-semibold text-white md:text-3xl">Users and audit trail</h1><p className="mt-1 text-sm text-slate-400">Live Neon Auth identities with explicit BRG role and jurisdiction assignments.</p></div>
+        <button type="button" onClick={() => { void refreshUsers(); void refreshAudit(); }} className="rounded-lg border border-slate-700 p-2 text-slate-400 hover:text-white" aria-label="Refresh user directory"><RefreshCw size={15} /></button>
+      </header>
 
-      <Tabs
-        tabs={[
-          { id: 'users', label: 'Officer Directory', icon: <Users size={14} />, count: users.length },
-          { id: 'audit', label: 'Audit Trail', icon: <Activity size={14} />, count: MOCK_AUDIT_LOGS.length },
-        ]}
-        active={activeTab}
-        onChange={setActiveTab}
-        className="px-6"
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4"><p className="text-xs text-slate-400">Role directory: {usersEnvelope?.status ?? 'CHECKING'} · Audit log: {auditEnvelope?.status ?? 'CHECKING'}</p><button type="button" onClick={() => setShowAssign((visible) => !visible)} className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-3 py-2 text-xs font-semibold text-slate-950"><Plus size={14} /> Assign BRG role</button></div>
 
-      <div className="flex-1 p-4 sm:p-6 overflow-auto">
-        {activeTab === 'users' && (
-          <>
-            <div className="mb-4 max-w-sm">
-              <SearchInput
-                placeholder="Search officers by name or email..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
+      {showAssign && <form onSubmit={assignRole} className="grid gap-3 rounded-xl border border-slate-800 bg-slate-900/70 p-4 md:grid-cols-2">
+        <h2 className="text-sm font-semibold text-slate-100 md:col-span-2">Assign role to a registered Neon Auth account</h2>
+        <label className="text-xs text-slate-400">Account<select value={userId} onChange={(event) => setUserId(event.target.value)} required className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100"><option value="">Select registered account</option>{users.map((user) => <option key={user.id} value={user.id}>{user.name || user.email || user.id} · {user.id.slice(0, 8)}</option>)}</select></label>
+        <label className="text-xs text-slate-400">BRG role<select value={role} onChange={(event) => setRole(event.target.value as BRGRole)} className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100">{roleOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+        {needsState && <label className="text-xs text-slate-400">State scope<input value={stateScope} onChange={(event) => setStateScope(event.target.value)} required maxLength={100} className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100" /></label>}
+        {needsDistrict && <label className="text-xs text-slate-400">District scope<input value={districtScope} onChange={(event) => setDistrictScope(event.target.value)} required maxLength={100} className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100" /></label>}
+        <p className="text-xs leading-5 text-slate-500 md:col-span-2">Accounts must be created in Neon Auth and sign in once before they appear here. This form grants BRG operational permissions only; authentication and password management remain with Neon Auth.</p>
+        {error && <p className="text-sm text-rose-200 md:col-span-2" role="alert">{error}</p>}
+        <div className="flex justify-end gap-2 md:col-span-2"><button type="button" onClick={() => { setShowAssign(false); setError(''); }} className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-400">Cancel</button><button type="submit" disabled={saving || !users.length} className="rounded-lg bg-sky-500 px-4 py-2 text-xs font-semibold text-slate-950 disabled:opacity-50">{saving ? 'Assigning…' : 'Assign role'}</button></div>
+      </form>}
 
-            <div className="bg-[#0D1828] border border-white/8 rounded-xl overflow-hidden shadow-xl">
-              <table className="data-table min-w-[750px]">
-                <thead>
-                  <tr>
-                    <th>Officer</th>
-                    <th>Designated Role</th>
-                    <th>Command Level</th>
-                    <th>Jurisdiction</th>
-                    <th>Account Status</th>
-                    <th>Last Active</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((user, idx) => (
-                    <motion.tr
-                      key={user.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: Math.min(idx * 0.02, 0.2) }}
-                      className="hover:bg-white/[0.02]"
-                    >
-                      <td>
-                        <div className="flex items-center gap-3">
-                          <UserAvatar
-                            initials={user.avatarInitials}
-                            size="sm"
-                            online={Boolean(user.onlineAt)}
-                          />
-                          <div>
-                            <p className="text-sm font-semibold text-slate-200">{user.name}</p>
-                            <p className="text-xs text-slate-500">{user.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <Badge variant={ROLE_BADGES[user.role] || 'ghost'} size="xs">
-                          {user.role.replace(/_/g, ' ')}
-                        </Badge>
-                      </td>
-                      <td>
-                        <span className="text-xs text-slate-300 capitalize font-medium">
-                          {user.commandLevel}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="text-xs text-slate-400">
-                          {user.stateAssigned || 'National HQ'}
-                          {user.districtAssigned ? ` · ${user.districtAssigned}` : ''}
-                        </span>
-                      </td>
-                      <td>
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold border ${
-                            user.status === 'active'
-                              ? 'text-green-400 bg-green-500/10 border-green-500/20'
-                              : 'text-red-400 bg-red-500/10 border-red-500/20'
-                          }`}
-                        >
-                          {user.status === 'active' ? (
-                            <ShieldCheck size={11} />
-                          ) : (
-                            <ShieldOff size={11} />
-                          )}
-                          <span className="capitalize">{user.status}</span>
-                        </span>
-                      </td>
-                      <td>
-                        <span className="text-xs text-slate-500">{user.lastActive}</span>
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => setConfirmAction({ type: 'suspend', user })}
-                            title={user.status === 'active' ? 'Suspend Account' : 'Reactivate'}
-                            className="p-1 rounded text-slate-500 hover:text-amber-400 hover:bg-white/6 transition-colors"
-                          >
-                            <ShieldOff size={14} />
-                          </button>
-                          <button
-                            onClick={() => setConfirmAction({ type: 'remove', user })}
-                            title="Remove User"
-                            className="p-1 rounded text-slate-500 hover:text-red-400 hover:bg-white/6 transition-colors"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
+      <div className="flex gap-2 border-b border-slate-800" role="tablist" aria-label="User administration views"><button type="button" role="tab" aria-selected={tab === 'users'} onClick={() => setTab('users')} className={`px-3 py-2 text-sm ${tab === 'users' ? 'border-b-2 border-sky-400 text-sky-200' : 'text-slate-500'}`}>Accounts <span className="ml-1 text-xs">{users.length}</span></button><button type="button" role="tab" aria-selected={tab === 'audit'} onClick={() => setTab('audit')} className={`inline-flex items-center gap-2 px-3 py-2 text-sm ${tab === 'audit' ? 'border-b-2 border-sky-400 text-sky-200' : 'text-slate-500'}`}><Activity size={14} /> Audit trail</button></div>
 
-        {activeTab === 'audit' && (
-          <div className="bg-[#0D1828] border border-white/8 rounded-xl overflow-hidden shadow-xl">
-            <table className="data-table min-w-[700px]">
-              <thead>
-                <tr>
-                  <th>Timestamp</th>
-                  <th>Action</th>
-                  <th>Officer</th>
-                  <th>Operational Record</th>
-                  <th>Log ID</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MOCK_AUDIT_LOGS.map((log) => (
-                  <tr key={log.id} className="hover:bg-white/[0.02]">
-                    <td>
-                      <span className="text-xs text-slate-400 font-mono">
-                        {new Date(log.timestamp).toLocaleString('en-IN', { hour12: false })}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="text-xs font-semibold text-slate-200">{log.action}</span>
-                    </td>
-                    <td>
-                      <p className="text-xs text-slate-300">{log.userName}</p>
-                      <p className="text-[10px] text-slate-500">{log.userRole}</p>
-                    </td>
-                    <td>
-                      <p className="text-xs text-slate-400">{log.details}</p>
-                    </td>
-                    <td>
-                      <span className="text-xs font-mono text-slate-600">{log.id}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Add User Modal */}
-      <Modal
-        open={addUserModalOpen}
-        onClose={() => setAddUserModalOpen(false)}
-        title="Register New Command Officer"
-        subtitle="Role-Based Access Control Provisioning"
-        size="md"
-      >
-        <form onSubmit={handleAddUser} className="space-y-4">
-          <Input
-            label="Officer Full Name"
-            required
-            placeholder="e.g. IAS K. Sudhakar"
-            value={newUserForm.name}
-            onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
-          />
-
-          <Input
-            label="Government Official Email"
-            type="email"
-            required
-            placeholder="e.g. sudhakar@apsdma.ap.gov.in"
-            value={newUserForm.email}
-            onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
-          />
-
-          <div className="grid grid-cols-2 gap-3">
-            <Select
-              label="Designated Role"
-              options={[
-                { value: 'national_admin', label: 'National Admin (NDMA)' },
-                { value: 'state_admin', label: 'State Admin (SDMA)' },
-                { value: 'district_admin', label: 'District Admin (DDMA)' },
-                { value: 'responder', label: 'Field Responder / NDRF' },
-              ]}
-              value={newUserForm.role}
-              onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value as UserRole })}
-            />
-
-            <Select
-              label="Command Level"
-              options={[
-                { value: 'national', label: 'National' },
-                { value: 'state', label: 'State' },
-                { value: 'district', label: 'District' },
-              ]}
-              value={newUserForm.commandLevel}
-              onChange={(e) =>
-                setNewUserForm({ ...newUserForm, commandLevel: e.target.value as CommandLevel })
-              }
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="State Assignment"
-              placeholder="e.g. Andhra Pradesh"
-              value={newUserForm.stateAssigned}
-              onChange={(e) => setNewUserForm({ ...newUserForm, stateAssigned: e.target.value })}
-            />
-
-            <Input
-              label="District (If applicable)"
-              placeholder="e.g. Visakhapatnam"
-              value={newUserForm.districtAssigned}
-              onChange={(e) => setNewUserForm({ ...newUserForm, districtAssigned: e.target.value })}
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
-            <Button variant="ghost" type="button" onClick={() => setAddUserModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit">
-              Provision Officer
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Confirm Action Dialog */}
-      <ConfirmDialog
-        open={confirmAction !== null}
-        onClose={() => setConfirmAction(null)}
-        onConfirm={handleConfirm}
-        title={confirmAction?.type === 'suspend' ? 'Confirm User Status Change' : 'Revoke Officer Access'}
-        message={
-          confirmAction?.type === 'suspend'
-            ? `Are you sure you want to ${confirmAction.user.status === 'active' ? 'suspend' : 'reactivate'} ${confirmAction.user.name}?`
-            : `Are you sure you want to permanently revoke access for ${confirmAction?.user.name}? This action is irreversible.`
-        }
-        variant={confirmAction?.type === 'remove' ? 'danger' : 'warning'}
-      />
-    </div>
+      {tab === 'users' ? <section className="space-y-3" role="tabpanel" aria-label="Accounts">
+        <label className="block max-w-sm text-xs text-slate-400">Search by name, email, or auth ID<input value={search} onChange={(event) => setSearch(event.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-slate-100" /></label>
+        <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60"><table className="w-full min-w-[760px] text-left text-sm"><thead className="border-b border-slate-800 bg-slate-950/50 text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="px-4 py-3">Account</th><th className="px-4 py-3">Email status</th><th className="px-4 py-3">BRG roles</th><th className="px-4 py-3">Created</th></tr></thead><tbody className="divide-y divide-slate-800">{filteredUsers.map((user) => <tr key={user.id}><td className="px-4 py-3"><p className="font-medium text-slate-200">{user.name || 'Name not available'}</p><p className="mt-1 text-xs text-slate-500">{user.email || 'Email not available'} · <span className="font-mono">{user.id}</span></p></td><td className="px-4 py-3"><span className={`inline-flex items-center gap-1 text-xs ${user.emailVerified ? 'text-emerald-300' : 'text-amber-300'}`}><ShieldCheck size={13} />{user.emailVerified ? 'Verified' : 'Unverified'}</span></td><td className="px-4 py-3"><div className="flex flex-wrap gap-1.5">{user.roles.length ? user.roles.map((assignment, index) => <span key={`${assignment.role}-${assignment.stateScope}-${assignment.districtScope}-${index}`} className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] text-slate-300">{assignment.role.replaceAll('_', ' ')}{assignment.stateScope ? ` · ${assignment.stateScope}` : ''}{assignment.districtScope ? ` / ${assignment.districtScope}` : ''}</span>) : <span className="text-xs text-slate-500">No BRG role</span>}</div></td><td className="px-4 py-3 text-xs text-slate-400">{new Date(user.createdAt).toLocaleDateString()}</td></tr>)}{!filteredUsers.length && <tr><td colSpan={4} className="px-4 py-10 text-center text-sm text-slate-500">{usersLoading ? 'Loading registered accounts…' : usersEnvelope?.status === 'OFFLINE' ? 'Directory unavailable; no sample users are shown.' : 'No registered accounts match this search.'}</td></tr>}</tbody></table></div>
+      </section> : <section className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60" role="tabpanel" aria-label="Audit trail"><table className="w-full min-w-[760px] text-left text-sm"><thead className="border-b border-slate-800 bg-slate-950/50 text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="px-4 py-3">Time</th><th className="px-4 py-3">Actor</th><th className="px-4 py-3">Action</th><th className="px-4 py-3">Record</th><th className="px-4 py-3">Details</th></tr></thead><tbody className="divide-y divide-slate-800">{audit.map((entry) => <tr key={entry.id}><td className="whitespace-nowrap px-4 py-3 text-xs text-slate-400">{new Date(entry.timestamp).toLocaleString()}</td><td className="px-4 py-3"><p className="text-xs text-slate-200">{entry.userId}</p><p className="text-[10px] text-slate-500">{entry.role}</p></td><td className="px-4 py-3 text-xs text-slate-200">{entry.action}</td><td className="px-4 py-3 text-xs text-slate-400">{entry.entityType}{entry.entityId ? ` · ${entry.entityId}` : ''}</td><td className="px-4 py-3 text-xs text-slate-500">{JSON.stringify(entry.details)}</td></tr>)}{!audit.length && <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">{auditLoading ? 'Loading audit entries…' : auditEnvelope?.status === 'OFFLINE' ? 'Audit service unavailable; no sample logs are shown.' : 'No audit entries have been recorded.'}</td></tr>}</tbody></table></section>}
+    </main>
   );
 };

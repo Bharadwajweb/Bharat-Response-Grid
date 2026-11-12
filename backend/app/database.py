@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -12,12 +13,15 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+logger = logging.getLogger(__name__)
+
 
 def _normalize_database_url(raw_url: str) -> str:
     url = make_url(raw_url)
     if url.drivername in {"postgres", "postgresql"}:
         url = url.set(drivername="postgresql+asyncpg")
     query = dict(url.query)
+    query.pop("channel_binding", None)
     sslmode = query.pop("sslmode", None)
     if sslmode in {"require", "verify-ca", "verify-full"}:
         query["ssl"] = "require"
@@ -88,7 +92,8 @@ async def database_status() -> dict[str, Any]:
             "schema": "READY" if ready else "MIGRATION_REQUIRED",
             "latencyMs": round((perf_counter() - started) * 1000, 1),
         }
-    except (SQLAlchemyError, OSError):
+    except Exception as exc:
+        logger.warning("Database health probe failed (%s)", type(exc).__name__)
         return {"status": "OFFLINE", "schema": "UNAVAILABLE", "latencyMs": None}
 
 

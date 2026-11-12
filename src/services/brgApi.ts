@@ -184,6 +184,28 @@ export interface AlertRecord {
   createdAt: string;
 }
 
+export type BRGRole = 'CENTRAL_AUTHORITY' | 'STATE_AUTHORITY' | 'DISTRICT_OFFICER' | 'EMERGENCY_OFFICER' | 'CITIZEN';
+
+export interface AdminUserRecord {
+  id: string;
+  email: string | null;
+  name: string | null;
+  emailVerified: boolean;
+  createdAt: string;
+  roles: Array<{ role: BRGRole; stateScope: string | null; districtScope: string | null }>;
+}
+
+export interface AuditRecord {
+  id: string;
+  userId: string;
+  role: string;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  timestamp: string;
+  details: Record<string, unknown>;
+}
+
 export interface OperationalRecordInput {
   title?: string;
   name?: string;
@@ -301,6 +323,9 @@ export const brgApi = {
   incidents: () => request<IncidentRecord[]>('/incidents', [], 'BRG PostgreSQL/PostGIS', true),
   resources: () => request<ResourceRecord[]>('/resources', [], 'BRG PostgreSQL', true),
   alerts: () => request<AlertRecord[]>('/alerts', [], 'BRG PostgreSQL', true),
+  adminUsers: () => request<AdminUserRecord[]>('/admin/users', [], 'Neon Auth profiles + BRG role assignments', true),
+  adminAudit: () => request<AuditRecord[]>('/admin/audit', [], 'BRG audit log', true),
+  assignUserRole: (userId: string, input: { role: BRGRole; state_scope?: string; district_scope?: string }) => authenticatedFetch<Record<string, unknown>>(`/admin/users/${encodeURIComponent(userId)}/roles`, { method: 'POST', body: JSON.stringify(input) }),
   createIncident: (input: Record<string, unknown>) => authenticatedFetch<IncidentRecord>('/incidents', { method: 'POST', body: JSON.stringify(input) }),
   updateIncident: (id: string, input: Record<string, unknown>) => authenticatedFetch<IncidentRecord>(`/incidents/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) }),
   assignIncident: (id: string, assignedTo: string) => authenticatedFetch<IncidentRecord>(`/incidents/${encodeURIComponent(id)}/assign`, { method: 'POST', body: JSON.stringify({ assigned_to: assignedTo }) }),
@@ -308,6 +333,7 @@ export const brgApi = {
   createResource: (input: Record<string, unknown>) => authenticatedFetch<ResourceRecord>('/resources', { method: 'POST', body: JSON.stringify(input) }),
   assessRisk: (input: Record<string, unknown>) => authenticatedFetch<Record<string, unknown>>('/decisions/recommendation', { method: 'POST', body: JSON.stringify(input) }),
   runSimulation: (input: Record<string, unknown>) => authenticatedFetch<Record<string, unknown>>('/simulation/runs', { method: 'POST', body: JSON.stringify(input) }),
+  simulationRuns: () => request<Array<{ id: string; scenario: Record<string, unknown>; result: Record<string, unknown>; status: string; createdAt: string }>>('/simulation/runs', [], 'BRG scenario runner', true),
   notifications: () => request<ApiNotification[]>('/notifications', [], 'BRG PostgreSQL', true),
   communicationRooms: () => request<CommunicationRoom[]>('/communications/rooms', [], 'BRG PostgreSQL', true),
   communicationMessages: (roomId: string) => request<CommunicationMessage[]>(`/communications/rooms/${encodeURIComponent(roomId)}/messages`, [], 'BRG PostgreSQL', true),

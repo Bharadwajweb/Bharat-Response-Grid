@@ -261,7 +261,7 @@ async def activate_evacuation_route(
     if incident is None:
         raise HTTPException(status_code=409, detail="Route incident no longer exists")
     _require_incident_scope(incident, user)
-    if route.hazard_status not in {"ASSESSED", "NO_INTERSECTIONS_REPORTED"}:
+    if route.hazard_status not in {"ASSESSED", "NO_INTERSECTIONS_REPORTED", "CONFIGURED_ZONES_CHECKED"}:
         raise HTTPException(status_code=409, detail="Route hazard coverage is insufficient for activation")
     incident.status = "responding"
     incident.updated_at = datetime.now(timezone.utc)

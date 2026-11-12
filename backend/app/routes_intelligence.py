@@ -419,12 +419,13 @@ def _haversine_km(latitude_a: float, longitude_a: float, latitude_b: float, long
 @router.post("/simulation/runs")
 async def create_simulation_run(
     payload: SimulationCreate,
-    user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    user: Annotated[AuthenticatedUser, Depends(require_roles(*STAFF_ROLES))],
     session: Annotated[AsyncSession, Depends(get_db)],
 ):
     nearby_shelters = []
     if payload.latitude is not None and payload.longitude is not None:
-        shelters = (await session.scalars(select(Shelter).where(Shelter.status.in_(["active", "standby"]), Shelter.latitude.is_not(None), Shelter.longitude.is_not(None)))).all()
+        shelter_scope = _scope_filters(Shelter, user)
+        shelters = (await session.scalars(select(Shelter).where(*shelter_scope, Shelter.status.in_(["active", "standby"]), Shelter.latitude.is_not(None), Shelter.longitude.is_not(None)))).all()
         for item in shelters:
             distance_km = _haversine_km(payload.latitude, payload.longitude, item.latitude, item.longitude)
             nearby_shelters.append({"id": str(item.id), "name": item.name, "distanceKm": round(distance_km, 2), "capacity": item.capacity, "occupancy": item.occupancy})
