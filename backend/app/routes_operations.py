@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.encoders import jsonable_encoder
 from geoalchemy2.elements import WKTElement
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +15,7 @@ from .audit import record_audit
 from .database import get_db
 from .models import Alert, AuditLog, CitizenReport, Incident, Resource, Role, Shelter, UserProfile, UserRoleAssignment
 from .realtime import realtime_hub
-from .schemas import AlertCreate, CitizenReportCreate, IncidentCreate, IncidentUpdate, ResourceCreate, ShelterCreate, ShelterUpdate
+from .schemas import AlertCreate, CitizenReportCreate, IncidentAssignment, IncidentCreate, IncidentUpdate, ResourceCreate, RoleAssignmentCreate, ShelterCreate, ShelterUpdate
 from .security import AuthenticatedUser, STAFF_ROLES, get_current_user, require_roles
 
 router = APIRouter(prefix="/api")
@@ -151,6 +151,10 @@ async def update_incident(
     changes = payload.model_dump(exclude_unset=True)
     if "state" in changes and changes["state"] and not user.has_role("CENTRAL_AUTHORITY") and changes["state"] != user.state_scope:
         raise HTTPException(status_code=403, detail="Incident state is outside your assigned scope")
+    if "status" in changes:
+        transitions = {"reported": {"verified", "responding"}, "verified": {"responding", "contained"}, "responding": {"contained", "resolved"}, "contained": {"responding", "resolved"}, "resolved": set()}
+        if changes["status"] != item.status and changes["status"] not in transitions.get(item.status, set()):
+            raise HTTPException(status_code=409, detail="Invalid incident status transition")
     for key, value in changes.items():
         setattr(item, key, value)
     item.updated_at = datetime.now(timezone.utc)
@@ -158,6 +162,39 @@ async def update_incident(
     await session.commit()
     await session.refresh(item)
     result = _incident_json(item)
+    await realtime_hub.broadcast("incident:updated", result)
+    return {"data": result, "status": "LIVE", "source": "BRG PostgreSQL"}
+
+
+@router.post("/incidents/{incident_id}/assign")
+async def assign_incident(
+    incident_id: UUID,
+    payload: IncidentAssignment,
+    user: Annotated[AuthenticatedUser, Depends(require_roles(*COMMAND_ROLES))],
+    session: Annotated[AsyncSession, Depends(get_db)],
+):
+    incident = await session.get(Incident, incident_id)
+    if incident is None:
+        raise HTTPException(status_code=404, detail="Incident was not found")
+    _ensure_record_scope(incident, user)
+    assignee = await session.scalar(
+        select(UserRoleAssignment.id)
+        .join(UserProfile, UserProfile.id == UserRoleAssignment.user_id)
+        .where(
+            UserProfile.auth_user_id == payload.assigned_to,
+            UserRoleAssignment.role_name == "EMERGENCY_OFFICER",
+            or_(UserRoleAssignment.state_scope.is_(None), UserRoleAssignment.state_scope == incident.state),
+            or_(UserRoleAssignment.district_scope.is_(None), UserRoleAssignment.district_scope == incident.district),
+        )
+    )
+    if assignee is None:
+        raise HTTPException(status_code=422, detail="Assignee is not an emergency officer in this incident scope")
+    incident.assigned_to = payload.assigned_to
+    incident.updated_at = datetime.now(timezone.utc)
+    await record_audit(session, user, "incident.assigned", "incident", str(incident.id), {"assignee": payload.assigned_to})
+    await session.commit()
+    await session.refresh(incident)
+    result = _incident_json(incident)
     await realtime_hub.broadcast("incident:updated", result)
     return {"data": result, "status": "LIVE", "source": "BRG PostgreSQL"}
 
@@ -278,10 +315,17 @@ async def list_alerts(
     limit: int = Query(default=100, ge=1, le=200),
 ):
     statement = select(Alert).where(Alert.status == "active").order_by(Alert.created_at.desc()).limit(limit)
-    if user.has_role("STATE_AUTHORITY", "DISTRICT_OFFICER") and user.state_scope:
-        statement = statement.where((Alert.state_scope.is_(None)) | (Alert.state_scope == user.state_scope))
-    if user.has_role("DISTRICT_OFFICER") and user.district_scope:
-        statement = statement.where((Alert.district_scope.is_(None)) | (Alert.district_scope == user.district_scope))
+    if user.has_role("CITIZEN"):
+        statement = statement.where(Alert.audience == "public")
+    elif not user.has_role("CENTRAL_AUTHORITY"):
+        visible_audiences = [Alert.audience.in_(["public", "staff"])]
+        if user.state_scope:
+            visible_audiences.append(and_(Alert.audience == "state", Alert.state_scope == user.state_scope))
+            if user.district_scope:
+                visible_audiences.append(and_(Alert.audience == "district", Alert.state_scope == user.state_scope, Alert.district_scope == user.district_scope))
+            elif user.has_role("STATE_AUTHORITY"):
+                visible_audiences.append(and_(Alert.audience == "district", Alert.state_scope == user.state_scope))
+        statement = statement.where(or_(*visible_audiences))
     rows = (await session.scalars(statement)).all()
     return {"data": [{"id": str(row.id), "title": row.title, "message": row.message, "severity": row.severity, "audience": row.audience, "state": row.state_scope, "district": row.district_scope, "createdAt": row.created_at} for row in rows], "status": "LIVE" if rows else "NO_DATA", "source": "BRG PostgreSQL"}
 
@@ -356,36 +400,61 @@ async def list_audit_logs(
     return {"data": data, "status": "LIVE" if rows else "NO_DATA", "source": "BRG audit log"}
 
 
-class RoleAssignmentInput(IncidentUpdate.__bases__[0]):
-    pass
+@router.get("/admin/users")
+async def list_users(
+    user: Annotated[AuthenticatedUser, Depends(require_roles(*ADMIN_ROLES))],
+    session: Annotated[AsyncSession, Depends(get_db)],
+    limit: int = Query(default=200, ge=1, le=500),
+):
+    rows = (await session.execute(
+        select(UserProfile.auth_user_id, UserProfile.email, UserProfile.display_name, UserProfile.email_verified, UserProfile.created_at, Role.name.label("role_name"), UserRoleAssignment.state_scope, UserRoleAssignment.district_scope)
+        .outerjoin(UserRoleAssignment, UserRoleAssignment.user_id == UserProfile.id)
+        .outerjoin(Role, Role.name == UserRoleAssignment.role_name)
+        .order_by(UserProfile.created_at.desc())
+        .limit(limit)
+    )).mappings().all()
+    users: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        item = users.setdefault(row["auth_user_id"], {"id": row["auth_user_id"], "email": row["email"], "name": row["display_name"], "emailVerified": row["email_verified"], "createdAt": row["created_at"], "roles": []})
+        if row["role_name"]:
+            item["roles"].append({"role": row["role_name"], "stateScope": row["state_scope"], "districtScope": row["district_scope"]})
+    return {"data": list(users.values()), "status": "LIVE" if users else "NO_DATA", "source": "Neon Auth profiles + BRG role assignments"}
 
 
 @router.post("/admin/users/{auth_user_id}/roles", status_code=status.HTTP_201_CREATED)
 async def assign_user_role(
     auth_user_id: str,
-    payload: dict[str, str | None],
+    payload: RoleAssignmentCreate,
     user: Annotated[AuthenticatedUser, Depends(require_roles(*ADMIN_ROLES))],
     session: Annotated[AsyncSession, Depends(get_db)],
 ):
     if len(auth_user_id) > 255:
         raise HTTPException(status_code=422, detail="Invalid user identifier")
-    role_name = payload.get("role")
-    allowed = {"CENTRAL_AUTHORITY", "STATE_AUTHORITY", "DISTRICT_OFFICER", "EMERGENCY_OFFICER", "CITIZEN"}
-    if role_name not in allowed:
-        raise HTTPException(status_code=422, detail="Unsupported BRG role")
     profile = await session.scalar(select(UserProfile).where(UserProfile.auth_user_id == auth_user_id))
     if profile is None:
         profile = UserProfile(auth_user_id=auth_user_id)
         session.add(profile)
         await session.flush()
-    if await session.get(Role, role_name) is None:
+    if await session.get(Role, payload.role) is None:
         raise HTTPException(status_code=503, detail="Role catalogue has not been installed")
-    assignment = UserRoleAssignment(user_id=profile.id, role_name=role_name, state_scope=payload.get("state_scope"), district_scope=payload.get("district_scope"))
+    conditions = [UserRoleAssignment.user_id == profile.id, UserRoleAssignment.role_name == payload.role]
+    conditions.append(UserRoleAssignment.state_scope.is_(None) if payload.state_scope is None else UserRoleAssignment.state_scope == payload.state_scope)
+    conditions.append(UserRoleAssignment.district_scope.is_(None) if payload.district_scope is None else UserRoleAssignment.district_scope == payload.district_scope)
+    if await session.scalar(select(UserRoleAssignment.id).where(*conditions)):
+        raise HTTPException(status_code=409, detail="That role and scope assignment already exists")
+    if payload.role in {"STATE_AUTHORITY", "DISTRICT_OFFICER", "EMERGENCY_OFFICER"}:
+        existing_scope = await session.scalar(
+            select(UserRoleAssignment.id).where(
+                UserRoleAssignment.user_id == profile.id,
+                UserRoleAssignment.role_name.in_(["STATE_AUTHORITY", "DISTRICT_OFFICER", "EMERGENCY_OFFICER"]),
+                or_(UserRoleAssignment.state_scope.is_not(None), UserRoleAssignment.district_scope.is_not(None)),
+                or_(UserRoleAssignment.state_scope.is_distinct_from(payload.state_scope), UserRoleAssignment.district_scope.is_distinct_from(payload.district_scope)),
+            )
+        )
+        if existing_scope:
+            raise HTTPException(status_code=409, detail="Each account can have only one non-central command scope")
+    assignment = UserRoleAssignment(user_id=profile.id, role_name=payload.role, state_scope=payload.state_scope, district_scope=payload.district_scope)
     session.add(assignment)
-    await record_audit(session, user, "user.role_assigned", "user", auth_user_id, {"role": role_name})
-    try:
-        await session.commit()
-    except SQLAlchemyError as error:
-        await session.rollback()
-        raise HTTPException(status_code=409, detail="That role and scope assignment already exists") from error
-    return {"status": "LIVE", "userId": auth_user_id, "role": role_name, "stateScope": assignment.state_scope, "districtScope": assignment.district_scope}
+    await record_audit(session, user, "user.role_assigned", "user", auth_user_id, {"role": payload.role})
+    await session.commit()
+    return {"status": "LIVE", "userId": auth_user_id, "role": payload.role, "stateScope": assignment.state_scope, "districtScope": assignment.district_scope}

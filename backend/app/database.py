@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from time import perf_counter
 from typing import Any
 
@@ -48,6 +49,15 @@ async def get_db() -> AsyncIterator[AsyncSession]:
 
 
 async def get_optional_db() -> AsyncIterator[AsyncSession | None]:
+    if SessionFactory is None:
+        yield None
+        return
+    async with SessionFactory() as session:
+        yield session
+
+
+@asynccontextmanager
+async def optional_db_session() -> AsyncIterator[AsyncSession | None]:
     if SessionFactory is None:
         yield None
         return

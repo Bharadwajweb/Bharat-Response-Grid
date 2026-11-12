@@ -121,11 +121,11 @@ async def _profile_access(session: AsyncSession | None, claims: dict[str, Any]) 
         )
         rows = (await session.execute(statement)).all()
         if rows:
-            return (
-                tuple(sorted({row.name for row in rows})),
-                next((row.state_scope for row in rows if row.state_scope), None),
-                next((row.district_scope for row in rows if row.district_scope), None),
-            )
+            roles = tuple(sorted({row.name for row in rows}))
+            priority = ("CENTRAL_AUTHORITY", "STATE_AUTHORITY", "DISTRICT_OFFICER", "EMERGENCY_OFFICER", "CITIZEN")
+            primary_role = next((role for role in priority if role in roles), "CITIZEN")
+            primary_assignment = next((row for row in rows if row.name == primary_role), rows[0])
+            return roles, primary_assignment.state_scope, primary_assignment.district_scope
 
         profile = await session.scalar(select(UserProfile).where(UserProfile.auth_user_id == auth_user_id))
         if profile is None:
@@ -156,14 +156,9 @@ async def _profile_access(session: AsyncSession | None, claims: dict[str, Any]) 
 _bearer = HTTPBearer(auto_error=False)
 
 
-async def get_current_user(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
-    session: Annotated[AsyncSession | None, Depends(get_optional_db)],
-) -> AuthenticatedUser:
-    if credentials is None or credentials.scheme.lower() != "bearer":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sign in is required")
+async def authenticate_access_token(token: str, session: AsyncSession | None = None) -> AuthenticatedUser:
     try:
-        claims = await asyncio.to_thread(_verify_token_sync, credentials.credentials)
+        claims = await asyncio.to_thread(_verify_token_sync, token)
     except RuntimeError as error:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
     except (jwt.PyJWTError, OSError, ValueError) as error:
@@ -181,6 +176,15 @@ async def get_current_user(
         state_scope=state_scope,
         district_scope=district_scope,
     )
+
+
+async def get_current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    session: Annotated[AsyncSession | None, Depends(get_optional_db)],
+) -> AuthenticatedUser:
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sign in is required")
+    return await authenticate_access_token(credentials.credentials, session)
 
 
 def require_roles(*allowed_roles: str):

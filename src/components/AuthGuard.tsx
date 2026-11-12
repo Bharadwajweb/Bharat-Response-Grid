@@ -24,5 +24,6 @@ export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children })
     return <main className="min-h-screen bg-[#07111F] text-slate-300 grid place-items-center" role="status">Checking secure session…</main>;
   }
   if (error || !data) return <Navigate to="/login" replace state={{ from: location }} />;
+  if (data.role === 'citizen') return <Navigate to="/citizen" replace />;
   return <>{children}</>;
 };

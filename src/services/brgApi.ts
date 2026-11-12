@@ -16,13 +16,66 @@ export interface ApiUser {
   name: string;
   email: string;
   role: 'national_admin' | 'state_admin' | 'district_admin' | 'responder' | 'citizen';
-  commandLevel: 'national' | 'state' | 'district';
+  commandLevel: 'national' | 'state' | 'district' | 'citizen';
   stateAssigned?: string;
   districtAssigned?: string;
   avatarInitials: string;
   status: 'active' | 'suspended';
   lastActive: string;
   emailVerified: boolean;
+}
+
+export interface WeatherHour {
+  time: string;
+  temperature: number | null;
+  rainProbability: number | null;
+  rainfallMm: number | null;
+  windKph: number | null;
+}
+
+export interface WeatherDay {
+  date: string;
+  highC: number | null;
+  lowC: number | null;
+  rainfallMm: number | null;
+  maxWindKph: number | null;
+}
+
+export interface WeatherPayload {
+  latitude: number;
+  longitude: number;
+  temperature: number | null;
+  humidity: number | null;
+  windKph: number | null;
+  rainfallMm: number | null;
+  rainProbability: number | null;
+  pressureHpa: number | null;
+  cloudCover: number | null;
+  observedAt: string | null;
+  hourly: WeatherHour[];
+  daily: WeatherDay[];
+}
+
+export interface EarthquakeRecord {
+  id: string;
+  magnitude: number | null;
+  depthKm: number | null;
+  latitude: number;
+  longitude: number;
+  place: string | null;
+  occurredAt: string | null;
+  source: string;
+  url?: string | null;
+}
+
+export interface MapFeatureCollection {
+  type: 'FeatureCollection';
+  features: Array<{
+    type: 'Feature';
+    id?: string | number;
+    geometry: { type: string; coordinates: unknown } | null;
+    properties: Record<string, unknown>;
+  }>;
 }
 
 export interface SystemStatus {
@@ -41,10 +94,122 @@ export interface CitizenReportInput {
   longitude?: number;
 }
 
+export interface ApiNotification {
+  id: string;
+  title: string;
+  message: string;
+  severity: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface CommunicationRoom {
+  id: string;
+  code: string;
+  name: string;
+  commandLevel: 'national' | 'state' | 'district';
+  stateScope: string | null;
+  districtScope: string | null;
+}
+
+export interface CommunicationMessage {
+  id: string;
+  roomId: string;
+  senderUserId: string;
+  senderName: string;
+  senderRole: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface IncidentRecord {
+  id: string;
+  reference: string;
+  hazardType: string;
+  title: string;
+  description: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  status: 'reported' | 'verified' | 'responding' | 'contained' | 'resolved';
+  location: string;
+  state: string;
+  district: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  reportedBy: string;
+  assignedTo: string | null;
+  affectedPopulation: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ShelterRecord {
+  id: string;
+  name: string;
+  address: string;
+  state: string;
+  district: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  capacity: number | null;
+  occupancy: number | null;
+  status: string;
+  medicalSupport: boolean;
+  foodStock: string | null;
+  waterStock: string | null;
+  updatedAt: string;
+}
+
+export interface ResourceRecord {
+  id: string;
+  name: string;
+  category: string;
+  status: string;
+  quantity: number;
+  available: number;
+  state: string;
+  district: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  assignedIncidentId?: string | null;
+}
+
+export interface AlertRecord {
+  id: string;
+  title: string;
+  message: string;
+  severity: string;
+  audience: string;
+  state: string | null;
+  district: string | null;
+  createdAt: string;
+}
+
+export interface OperationalRecordInput {
+  title?: string;
+  name?: string;
+  description?: string;
+  hazard_type?: string;
+  severity?: string;
+  location_text?: string;
+  address?: string;
+  state?: string;
+  district?: string;
+  latitude?: number;
+  longitude?: number;
+  capacity?: number;
+  occupancy?: number;
+  status?: string;
+  category?: string;
+  quantity?: number;
+  available?: number;
+}
+
 function endpoint(path: string) {
-  const base = apiBaseUrl().replace(/\/+$/, '').replace(/\/api$/i, '');
-  if (!base) return null;
-  return `${base}/api${path.startsWith('/') ? path : `/${path}`}`;
+  let base = apiBaseUrl().trim();
+  while (base.endsWith('/')) base = base.slice(0, -1);
+  if (base.toLowerCase().endsWith('/api')) base = base.slice(0, -4);
+  const apiPath = `/api${path.startsWith('/') ? path : `/${path}`}`;
+  return base ? `${base}${apiPath}` : apiPath;
 }
 
 function isDataStatus(value: unknown): value is DataStatus {
@@ -118,26 +283,38 @@ export async function recordAuthEvent(event: 'login' | 'logout') {
 }
 
 export async function submitCitizenReport(report: CitizenReportInput) {
-  return authenticatedFetch<{ id: string; reference: string; status: string; created_at: string }>('/citizen-reports', {
+  return authenticatedFetch<{ id: string; reference: string; status: string; createdAt: string }>('/citizen-reports', {
     method: 'POST',
     body: JSON.stringify(report),
   });
 }
 
 export async function getMyCitizenReports() {
-  return authenticatedFetch<Array<{ id: string; reference: string; report_type: string; location_text: string; status: string; created_at: string }>>('/citizen-reports/mine');
+  return authenticatedFetch<Array<{ id: string; reference: string; reportType: string; location: string; status: string; createdAt: string }>>('/citizen-reports/mine');
 }
 
 export const brgApi = {
   decisionStatus: () => request('/decisions/status', { available: false }, 'BRG rule-based decision support'),
-  weather: (latitude = 20.5937, longitude = 78.9629) => request(`/weather/current?latitude=${latitude}&longitude=${longitude}`, null, 'Open-Meteo'),
-  earthquakes: () => request('/earthquakes?region=india', [], 'USGS Earthquake Feed'),
-  shelters: () => request('/shelters?status=active', [], 'BRG PostgreSQL/PostGIS', true),
-  incidents: () => request('/incidents', [], 'BRG PostgreSQL/PostGIS', true),
-  alerts: () => request('/alerts', [], 'BRG PostgreSQL', true),
-  notifications: () => request('/notifications', [], 'BRG PostgreSQL', true),
-  mapFeatures: () => request('/map/features', { type: 'FeatureCollection', features: [] }, 'BRG PostgreSQL/PostGIS', true),
-  webSocketTicket: () => authenticatedFetch<{ ticket: string }>('/auth/ws-ticket', { method: 'POST' }),
+  weather: (latitude = 20.5937, longitude = 78.9629) => request<WeatherPayload | null>(`/weather/current?latitude=${latitude}&longitude=${longitude}`, null, 'Open-Meteo'),
+  earthquakes: () => request<EarthquakeRecord[]>('/earthquakes?region=india', [], 'USGS Earthquake Feed'),
+  shelters: () => request<ShelterRecord[]>('/shelters', [], 'BRG PostgreSQL/PostGIS', true),
+  incidents: () => request<IncidentRecord[]>('/incidents', [], 'BRG PostgreSQL/PostGIS', true),
+  resources: () => request<ResourceRecord[]>('/resources', [], 'BRG PostgreSQL', true),
+  alerts: () => request<AlertRecord[]>('/alerts', [], 'BRG PostgreSQL', true),
+  createIncident: (input: Record<string, unknown>) => authenticatedFetch<IncidentRecord>('/incidents', { method: 'POST', body: JSON.stringify(input) }),
+  updateIncident: (id: string, input: Record<string, unknown>) => authenticatedFetch<IncidentRecord>(`/incidents/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  assignIncident: (id: string, assignedTo: string) => authenticatedFetch<IncidentRecord>(`/incidents/${encodeURIComponent(id)}/assign`, { method: 'POST', body: JSON.stringify({ assigned_to: assignedTo }) }),
+  createShelter: (input: Record<string, unknown>) => authenticatedFetch<ShelterRecord>('/shelters', { method: 'POST', body: JSON.stringify(input) }),
+  createResource: (input: Record<string, unknown>) => authenticatedFetch<ResourceRecord>('/resources', { method: 'POST', body: JSON.stringify(input) }),
+  assessRisk: (input: Record<string, unknown>) => authenticatedFetch<Record<string, unknown>>('/decisions/recommendation', { method: 'POST', body: JSON.stringify(input) }),
+  runSimulation: (input: Record<string, unknown>) => authenticatedFetch<Record<string, unknown>>('/simulation/runs', { method: 'POST', body: JSON.stringify(input) }),
+  notifications: () => request<ApiNotification[]>('/notifications', [], 'BRG PostgreSQL', true),
+  communicationRooms: () => request<CommunicationRoom[]>('/communications/rooms', [], 'BRG PostgreSQL', true),
+  communicationMessages: (roomId: string) => request<CommunicationMessage[]>(`/communications/rooms/${encodeURIComponent(roomId)}/messages`, [], 'BRG PostgreSQL', true),
+  sendCommunicationMessage: (roomId: string, content: string) => authenticatedFetch<CommunicationMessage>(`/communications/rooms/${encodeURIComponent(roomId)}/messages`, { method: 'POST', body: JSON.stringify({ content }) }),
+  getMyCitizenReports,
+  submitCitizenReport,
+  mapFeatures: () => request<MapFeatureCollection>('/map/features', { type: 'FeatureCollection', features: [] }, 'BRG PostgreSQL/PostGIS', true),
   analytics: () => request('/analytics/summary', null, 'BRG PostgreSQL', true),
   systemStatus: () => request<SystemStatus>('/system/status', {
     overall: 'OFFLINE',
@@ -156,19 +333,18 @@ export function sourceBadge(envelope: Pick<DataEnvelope<unknown>, 'status'>) {
   return envelope.status;
 }
 
-export function connectToEvents(ticket: string, onEvent: (event: unknown) => void, onStatus?: (connected: boolean) => void) {
-  let base = apiBaseUrl().trim();
-  while (base.endsWith('/')) base = base.slice(0, -1);
-  if (base.toLowerCase().endsWith('/api')) base = base.slice(0, -4);
-  if (!base || !ticket || typeof WebSocket === 'undefined') {
+export function connectToEvents(token: string, onEvent: (event: unknown) => void, onStatus?: (connected: boolean) => void) {
+  if (!token || typeof WebSocket === 'undefined') {
     onStatus?.(false);
     return () => undefined;
   }
 
+  let base = apiBaseUrl().trim() || window.location.origin;
+  while (base.endsWith('/')) base = base.slice(0, -1);
+  if (base.toLowerCase().endsWith('/api')) base = base.slice(0, -4);
   const wsBase = base.replace(/^http/i, 'ws');
   const wsUrl = new URL(`${wsBase}/api/events`);
-  wsUrl.searchParams.set('ticket', ticket);
-  const socket = new WebSocket(wsUrl);
+  const socket = new WebSocket(wsUrl, ['brg-auth', token]);
   let closed = false;
   let statusReported = false;
   const reportOffline = () => {

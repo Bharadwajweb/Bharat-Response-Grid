@@ -12,8 +12,10 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from .database import close_database, database_status
 from .routes_auth import router as auth_router
+from .routes_collaboration import router as collaboration_router
 from .routes_intelligence import router as intelligence_router
 from .routes_operations import router as operations_router
+from .routes_notifications import router as notifications_router
 from .routes_system import router as system_router
 
 logger = logging.getLogger("brg.api")
@@ -22,7 +24,7 @@ logger = logging.getLogger("brg.api")
 def _allowed_origins() -> list[str]:
     values = [value.strip().rstrip("/") for value in os.getenv("FRONTEND_ORIGINS", "").split(",") if value.strip()]
     if os.getenv("ENVIRONMENT", "development").lower() != "production":
-        values.extend(["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:4173", "http://127.0.0.1:4173"])
+        values.extend(["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174", "http://localhost:4173", "http://127.0.0.1:4173"])
     return list(dict.fromkeys(values))
 
 
@@ -68,4 +70,6 @@ async def health():
 app.include_router(auth_router)
 app.include_router(intelligence_router)
 app.include_router(operations_router)
+app.include_router(collaboration_router)
+app.include_router(notifications_router)
 app.include_router(system_router)

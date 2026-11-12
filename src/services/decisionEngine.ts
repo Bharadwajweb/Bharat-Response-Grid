@@ -128,15 +128,17 @@ export function rankRoutes(routes: DecisionOutput['routeOptions']) { return [...
 
 export function decisionAuditEvent(output: DecisionOutput) { return { action: 'route_recommendation', riskLevel: output.riskLevel, riskScore: output.riskScore, createdAt: new Date().toISOString() }; }
 
-export function supportsLiveBackend() { return Boolean(import.meta.env.VITE_API_BASE_URL); }
+export function supportsLiveBackend() { return Boolean(import.meta.env.VITE_API_BASE_URL) || import.meta.env.DEV; }
 
 export function apiBaseUrl() {
   const configured = import.meta.env.VITE_API_BASE_URL?.trim();
-  if (configured) return configured.replace(/\\/+$/, '');
-  return import.meta.env.DEV ? 'http://localhost:8000' : '';
+  if (!configured) return '';
+  let base = configured;
+  while (base.endsWith('/')) base = base.slice(0, -1);
+  return base;
 }
 
-export function dataMode() { return supportsLiveBackend() ? 'LIVE' : 'SIMULATION'; }
+export function dataMode() { return supportsLiveBackend() ? 'LIVE' : 'OFFLINE'; }
 
 export function hazardDirectionLabel(direction: string) { return `${normalizeDirection(direction)} movement`; }
 

@@ -25,7 +25,7 @@ export const TopNavbar: React.FC = () => {
   });
   const notifications = notificationEnvelope?.data ?? [];
   const notificationCount = notificationEnvelope?.status === 'LIVE'
-    ? notifications.filter((item: any) => !item.read_at).length
+    ? notifications.filter((item) => !item.readAt).length
     : 0;
 
   useEffect(() => {
@@ -43,6 +43,8 @@ export const TopNavbar: React.FC = () => {
     try { await endAuthSession(); } finally {
       useAppStore.getState().logout();
       await mutate('brg-current-user', undefined, { revalidate: false });
+      await mutate('brg-websocket-token', null, { revalidate: false });
+      await mutate('brg-notifications', undefined, { revalidate: false });
       navigate('/login', { replace: true });
       setUserMenuOpen(false);
     }
@@ -96,9 +98,9 @@ export const TopNavbar: React.FC = () => {
             <div className="max-h-80 overflow-y-auto">
               {notificationsLoading && <p className="px-4 py-6 text-center text-xs text-slate-500">Checking notification feed…</p>}
               {!notificationsLoading && notifications.length === 0 && <p className="px-4 py-6 text-center text-xs text-slate-500">{notificationEnvelope?.status === 'LIVE' ? 'No notifications recorded.' : 'Notification feed unavailable; no sample notices are shown.'}</p>}
-              {notifications.map((item: any) => <div key={item.id} className="border-b border-white/5 px-4 py-3">
+              {notifications.map((item) => <div key={item.id} className="border-b border-white/5 px-4 py-3">
                 <p className="text-xs text-slate-300">{item.message}</p>
-                <p className="mt-1 text-[10px] text-slate-600">{item.created_at ? new Date(item.created_at).toLocaleString() : 'Time unavailable'}</p>
+                <p className="mt-1 text-[10px] text-slate-600">{item.createdAt ? new Date(item.createdAt).toLocaleString() : 'Time unavailable'}</p>
               </div>)}
             </div>
           </div>}

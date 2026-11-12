@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 SeverityValue = Literal["critical", "high", "medium", "low"]
@@ -39,6 +39,8 @@ class IncidentCreate(BaseModel):
 
 
 class IncidentUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     title: str | None = Field(default=None, min_length=3, max_length=180)
     description: str | None = Field(default=None, max_length=5000)
     severity: SeverityValue | None = None
@@ -46,7 +48,6 @@ class IncidentUpdate(BaseModel):
     location_text: str | None = Field(default=None, min_length=2, max_length=240)
     state: str | None = Field(default=None, min_length=2, max_length=100)
     district: str | None = Field(default=None, max_length=100)
-    assigned_to: str | None = Field(default=None, max_length=255)
     affected_population: int | None = Field(default=None, ge=0, le=100_000_000)
 
 
@@ -113,6 +114,16 @@ class AlertCreate(BaseModel):
     state_scope: str | None = Field(default=None, max_length=100)
     district_scope: str | None = Field(default=None, max_length=100)
 
+    @model_validator(mode="after")
+    def validate_audience_scope(self):
+        if self.audience in {"state", "district"} and not self.state_scope:
+            raise ValueError("state and district alerts require a state scope")
+        if self.audience == "district" and not self.district_scope:
+            raise ValueError("district alerts require a district scope")
+        if self.district_scope and not self.state_scope:
+            raise ValueError("district scope requires a state scope")
+        return self
+
 
 class CitizenReportCreate(BaseModel):
     report_type: str = Field(min_length=2, max_length=40)
@@ -173,6 +184,8 @@ class RoleAssignmentCreate(BaseModel):
             raise ValueError("state authority assignments require a state scope")
         if self.role == "DISTRICT_OFFICER" and (not self.state_scope or not self.district_scope):
             raise ValueError("district officer assignments require state and district scopes")
+        if self.role == "EMERGENCY_OFFICER" and not self.state_scope:
+            raise ValueError("emergency officer assignments require a state scope")
         if self.district_scope and not self.state_scope:
             raise ValueError("district scope requires a state scope")
         return self

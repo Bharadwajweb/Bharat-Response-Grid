@@ -1,37 +1,104 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Activity, AlertTriangle, ArrowUpRight, CloudRain, Compass, Crosshair, Droplets, Flame, Gauge, MapPin, Radio, RefreshCw, ShieldAlert, Siren, Users, Wind } from 'lucide-react';
-import { useIncidentStore } from '../store/incidentStore';
-import { MOCK_SHELTERS } from '../data/mockData';
+import { Link } from 'react-router-dom';
+import useSWR from 'swr';
+import { Activity, ArrowRight, CloudRain, Database, Map, Radio, ShieldAlert, Warehouse } from 'lucide-react';
+import { brgApi } from '../services/brgApi';
 
-const events = [
-  { tone: 'critical', title: 'Cyclone track crossed warning threshold', place: 'Visakhapatnam coastal corridor', time: '02 min' },
-  { tone: 'warning', title: 'Flood gauge rising above action level', place: 'Krishna delta · Vijayawada', time: '08 min' },
-  { tone: 'info', title: 'NDRF team acknowledged deployment', place: 'Unit 10 · Guntur staging', time: '14 min' },
-  { tone: 'safe', title: 'Shelter intake confirmed', place: 'Saidapet relief complex', time: '21 min' },
-];
-const bars = [35, 48, 41, 62, 55, 78, 68, 86, 74, 91, 83, 96, 87, 72, 64, 78, 67, 54, 61, 49, 44, 58, 46, 38];
-const tone: Record<string, string> = { critical: 'bg-red-400', warning: 'bg-amber-300', info: 'bg-cyan-300', safe: 'bg-emerald-400' };
+const statusTone: Record<string, string> = {
+  LIVE: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300',
+  CACHED: 'border-amber-500/25 bg-amber-500/10 text-amber-300',
+  NO_DATA: 'border-slate-700 bg-slate-900 text-slate-400',
+  OFFLINE: 'border-rose-500/25 bg-rose-500/10 text-rose-300',
+  DEGRADED: 'border-amber-500/25 bg-amber-500/10 text-amber-300',
+  ERROR: 'border-rose-500/25 bg-rose-500/10 text-rose-300',
+};
+
+function SourcePill({ status }: { status?: string }) {
+  const value = status ?? 'OFFLINE';
+  return <span className={`rounded-full border px-2 py-1 text-[9px] font-bold tracking-wider ${statusTone[value] ?? statusTone.NO_DATA}`}>{value.replaceAll('_', ' ')}</span>;
+}
 
 export const CommandOverviewPage: React.FC = () => {
-  const navigate = useNavigate();
-  const { incidents } = useIncidentStore();
-  const active = incidents.filter(i => i.status !== 'resolved');
-  return <div className="min-h-full bg-[#091422] text-slate-100">
-    <div className="border-b border-white/10 bg-[#0b1929]/90 px-5 py-5 lg:px-8"><div className="flex flex-wrap items-end justify-between gap-4"><div><div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-300"><span className="live-dot" /> Live national operating picture</div><h1 className="text-2xl font-semibold tracking-tight text-white lg:text-3xl">Command center <span className="text-slate-500">/</span> India grid</h1><p className="mt-1 text-xs text-slate-500">Multi-hazard coordination surface for decision makers and response officers.</p></div><div className="flex items-center gap-2 text-[10px] text-slate-500"><RefreshCw size={13} className="text-cyan-300" /> Updated 18 seconds ago <span className="rounded-md border border-emerald-400/20 bg-emerald-400/10 px-2 py-1 text-emerald-300">LIVE FEEDS 12/12</span></div></div></div>
-    <div className="space-y-5 p-5 lg:p-8">
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-5"><Metric label="Active incidents" value={active.length || 12} delta="3 critical" color="text-red-300" icon={AlertTriangle} /><Metric label="Population at risk" value="184.2K" delta="+12% / 6h" color="text-amber-300" icon={Users} /><Metric label="Shelter capacity" value="68%" delta="3,611 hosted" color="text-emerald-300" icon={ShieldAlert} /><Metric label="Response units" value="47" delta="18 deployed" color="text-cyan-300" icon={Radio} /><Metric label="Avg response" value="14m" delta="3m faster" color="text-violet-300" icon={Gauge} /></div>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-        <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#0d1d2e] shadow-2xl shadow-black/20"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">Situational map</p><h2 className="mt-1 text-lg font-semibold text-white">Live hazard picture</h2></div><button onClick={() => navigate('/live-map')} className="flex items-center gap-2 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-400/20">Open GIS workspace <ArrowUpRight size={14} /></button></div><div className="relative min-h-[390px] overflow-hidden bg-[#10283a]" style={{ backgroundImage: 'linear-gradient(rgba(94,234,212,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(94,234,212,.06) 1px,transparent 1px)', backgroundSize: '42px 42px' }}><div className="absolute inset-0 opacity-70" style={{ background: 'radial-gradient(circle at 55% 42%, rgba(14,165,233,.25), transparent 24%), radial-gradient(circle at 28% 65%, rgba(239,68,68,.3), transparent 18%), radial-gradient(circle at 77% 28%, rgba(245,158,11,.2), transparent 15%)' }} /><svg className="absolute inset-0 h-full w-full opacity-50" viewBox="0 0 800 420" preserveAspectRatio="none"><path d="M60 340 C150 270 120 180 220 200 S330 310 410 250 S520 100 620 150 S700 230 770 80" fill="none" stroke="#38bdf8" strokeWidth="2" strokeDasharray="8 8" /><path d="M20 110 C130 160 160 80 270 130 S420 220 540 170 S670 300 790 270" fill="none" stroke="#f59e0b" strokeWidth="1.5" /></svg>{[{ x:'31%', y:'63%', n:'12', c:'bg-red-500', label:'FLOOD' },{ x:'58%', y:'42%', n:'07', c:'bg-amber-400', label:'STORM' },{ x:'76%', y:'25%', n:'03', c:'bg-cyan-400', label:'FIRE' },{ x:'48%', y:'75%', n:'08', c:'bg-emerald-400', label:'SAFE' }].map(p => <div key={p.label} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left:p.x, top:p.y }}><div className={`flex h-10 w-10 items-center justify-center rounded-full ${p.c} text-xs font-black text-slate-950 shadow-lg shadow-black/40 ring-4 ring-white/10`}>{p.n}</div><span className="mt-1 block text-center text-[9px] font-bold tracking-wider text-white/70">{p.label}</span></div>)}<div className="absolute bottom-4 left-4 flex flex-wrap gap-3 rounded-xl border border-white/10 bg-[#07101d]/80 px-3 py-2 text-[10px] text-slate-400 backdrop-blur"><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500" /> Critical</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-400" /> Active hazard</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-400" /> Safe zone</span></div><div className="absolute right-4 top-4 rounded-lg border border-white/10 bg-[#07101d]/80 p-2 text-[10px] text-slate-400 backdrop-blur"><MapPin size={12} className="mr-1 inline text-cyan-300" /> 12 layers visible</div></div></section>
-        <aside className="rounded-2xl border border-white/10 bg-[#0d1d2e] p-5"><div className="flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-violet-300">Decision intelligence</p><h2 className="mt-1 text-lg font-semibold">Response posture</h2></div><Crosshair size={18} className="text-violet-300" /></div><div className="mt-5 rounded-xl border border-red-400/25 bg-red-400/[0.07] p-4"><div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-red-300"><span>Hazard detected</span><span>High</span></div><p className="mt-2 text-sm font-semibold text-white">Cyclone + coastal surge</p><p className="mt-1 text-xs leading-5 text-slate-400">Track moving west-northwest at 18 km/h. Exposure is increasing across the coastal corridor.</p></div><div className="my-4 space-y-3">{[['Movement','East → West','text-amber-300'],['Impact area','15 km buffer','text-red-300'],['Recommended direction','North-West','text-cyan-300'],['Nearest shelter','Saidapet complex · 4.2 km','text-emerald-300']].map(([a,b,c]) => <div key={a} className="flex items-start justify-between gap-3 border-b border-white/5 pb-3"><span className="text-xs text-slate-500">{a}</span><span className={`text-right text-xs font-semibold ${c}`}>{b}</span></div>)}</div><button onClick={() => navigate('/risk-analysis')} className="w-full rounded-xl bg-violet-400 px-3 py-2.5 text-xs font-bold text-slate-950 hover:bg-violet-300">Open recommendation chain</button><p className="mt-3 text-[10px] leading-4 text-slate-600">Recommendations are decision support, not a guarantee of safety.</p></aside>
-      </div>
-      <div className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]"><section className="rounded-2xl border border-white/10 bg-[#0d1d2e] p-5"><div className="mb-4 flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Operational stream</p><h2 className="mt-1 text-base font-semibold">Event watch</h2></div><button onClick={() => navigate('/incidents')} className="text-xs text-cyan-300">View triage queue</button></div><div className="space-y-4">{events.map(e => <div key={e.title} className="flex gap-3"><span className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${tone[e.tone]}`} /><div className="min-w-0 flex-1"><div className="flex justify-between gap-3"><p className="text-xs font-semibold text-slate-200">{e.title}</p><span className="text-[10px] text-slate-600">{e.time}</span></div><p className="mt-1 text-[11px] text-slate-500">{e.place}</p></div></div>)}</div></section><section className="rounded-2xl border border-white/10 bg-[#0d1d2e] p-5"><div className="flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Risk telemetry</p><h2 className="mt-1 text-base font-semibold">24-hour exposure index</h2></div><span className="text-xs text-amber-300">Elevated</span></div><div className="mt-6 flex h-24 items-end gap-1.5">{bars.map((h,i) => <div key={i} className={`flex-1 rounded-t-sm ${h > 80 ? 'bg-red-400' : h > 60 ? 'bg-amber-300' : 'bg-cyan-400/70'}`} style={{ height:`${h}%` }} />)}</div><div className="mt-2 flex justify-between text-[10px] text-slate-600"><span>00:00</span><span>12:00</span><span>Now</span></div></section></div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4"><Quick icon={Wind} title="Weather radar" value="Wind 42 km/h" link="/weather-intelligence" /><Quick icon={CloudRain} title="Rainfall" value="126 mm / 24h" link="/weather-intelligence" /><Quick icon={Flame} title="Fire watch" value="3 active zones" link="/live-map" /><Quick icon={Compass} title="Evacuation" value="68% complete" link="/evacuation" /></div>
-    </div>
-  </div>;
-};
-const Metric = ({label,value,delta,color,icon:Icon}: any) => <div className="rounded-xl border border-white/10 bg-[#0d1d2e] p-4"><div className="flex items-center justify-between"><span className="text-[10px] uppercase tracking-wider text-slate-500">{label}</span><Icon size={14} className={color} /></div><p className="mt-3 text-2xl font-semibold tabular-nums text-white">{value}</p><p className={`mt-1 text-[10px] ${color}`}>{delta}</p></div>;
-const Quick = ({icon:Icon,title,value,link}: any) => { const navigate = useNavigate(); return <button onClick={() => navigate(link)} className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#0d1d2e] p-4 text-left hover:border-cyan-400/30"><Icon size={18} className="text-cyan-300" /><span><span className="block text-[10px] uppercase tracking-wider text-slate-500">{title}</span><strong className="mt-1 block text-xs text-slate-200">{value}</strong></span></button>; };
-export const IncidentDetailContent: React.FC<{ incident?: unknown }> = () => <div className="rounded-xl border border-white/10 bg-[#0d1d2e] p-5 text-sm text-slate-400">Select an incident from the triage queue to inspect location, exposure, responders, and recommended actions.</div>;
+  const { data: status } = useSWR('brg-system-status', brgApi.systemStatus, { refreshInterval: 15000, shouldRetryOnError: false });
+  const { data: incidents } = useSWR('brg-incidents', brgApi.incidents, { refreshInterval: 20000, shouldRetryOnError: false });
+  const { data: alerts } = useSWR('brg-alerts', brgApi.alerts, { refreshInterval: 30000, shouldRetryOnError: false });
+  const { data: shelters } = useSWR('brg-shelters', brgApi.shelters, { refreshInterval: 60000, shouldRetryOnError: false });
+  const { data: resources } = useSWR('brg-resources', brgApi.resources, { refreshInterval: 60000, shouldRetryOnError: false });
+  const { data: weather } = useSWR('brg-weather-national', () => brgApi.weather(), { refreshInterval: 300000, shouldRetryOnError: false });
 
-export default CommandOverviewPage;
+  const incidentRows = incidents?.data ?? [];
+  const activeIncidents = incidentRows.filter((item) => !['contained', 'resolved'].includes(item.status));
+  const criticalIncidents = activeIncidents.filter((item) => item.severity === 'critical' || item.severity === 'high');
+  const alertRows = alerts?.data ?? [];
+  const shelterRows = shelters?.data ?? [];
+  const activeShelters = shelterRows.filter((shelter) => shelter.status === 'active');
+  const resourceRows = resources?.data ?? [];
+  const weatherData = weather?.data;
+  const serviceOverall = status?.data.overall ?? 'OFFLINE';
+
+  const metrics = [
+    { label: 'Active incidents', value: incidents?.status === 'OFFLINE' ? '—' : String(activeIncidents.length), note: incidents?.status === 'NO_DATA' ? 'No records returned' : incidents?.source ?? 'BRG incident registry', icon: ShieldAlert, tone: 'text-rose-300' },
+    { label: 'High / critical', value: incidents?.status === 'OFFLINE' ? '—' : String(criticalIncidents.length), note: 'From scoped incident records', icon: Activity, tone: 'text-amber-300' },
+    { label: 'Active shelters', value: shelters?.status === 'OFFLINE' ? '—' : String(activeShelters.length), note: shelters?.source ?? 'BRG shelter registry', icon: Warehouse, tone: 'text-emerald-300' },
+    { label: 'Tracked resources', value: resources?.status === 'OFFLINE' ? '—' : String(resourceRows.length), note: resources?.source ?? 'BRG resource registry', icon: Database, tone: 'text-sky-300' },
+  ];
+
+  return (
+    <main className="space-y-6 p-4 md:p-6">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-800 pb-5">
+        <div>
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-sky-300"><Activity size={14} /> National coordination</p>
+          <h1 className="mt-2 text-2xl font-semibold text-white md:text-3xl">Command overview</h1>
+          <p className="mt-1 text-sm text-slate-400">Scoped records and source-backed feeds. No operational count is substituted when a service is unavailable.</p>
+        </div>
+        <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-300"><Radio size={14} className={serviceOverall === 'ONLINE' ? 'text-emerald-300' : 'text-amber-300'} /> System <SourcePill status={serviceOverall} /></div>
+      </header>
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Current source-backed metrics">
+        {metrics.map(({ label, value, note, icon: Icon, tone }) => <article key={label} className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+          <div className="flex items-center justify-between"><span className="text-xs font-medium text-slate-400">{label}</span><Icon size={16} className={tone} /></div>
+          <p className="mt-4 text-3xl font-semibold tabular-nums text-slate-100">{value}</p>
+          <p className="mt-1 truncate text-[11px] text-slate-500">{note}</p>
+          <div className="mt-3"><SourcePill status={label === 'Active incidents' || label === 'High / critical' ? incidents?.status : label === 'Active shelters' ? shelters?.status : resources?.status} /></div>
+        </article>)}
+      </section>
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(300px,0.8fr)]">
+        <section className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/70">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-800 px-4 py-3">
+            <div><h2 className="text-sm font-semibold text-slate-100">Incident queue</h2><p className="mt-1 text-xs text-slate-500">Most recently updated records in your command scope</p></div>
+            <Link to="/incidents" className="inline-flex items-center gap-1 text-xs font-medium text-sky-300 hover:text-sky-200">Open registry <ArrowRight size={13} /></Link>
+          </div>
+          <div className="divide-y divide-slate-800/80">
+            {activeIncidents.slice(0, 6).map((incident) => <article key={incident.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0"><p className="truncate text-sm font-medium text-slate-200">{incident.title}</p><p className="mt-1 text-xs text-slate-500">{incident.reference} · {incident.location}{incident.district ? ` · ${incident.district}` : ''}</p></div>
+              <div className="flex items-center gap-2"><span className="rounded border border-slate-700 px-2 py-1 text-[9px] uppercase text-slate-300">{incident.status}</span><span className="rounded border border-slate-700 px-2 py-1 text-[9px] uppercase text-slate-300">{incident.severity}</span></div>
+            </article>)}
+            {!activeIncidents.length && <p className="px-4 py-10 text-center text-sm text-slate-500">{incidents?.status === 'OFFLINE' ? 'Incident registry unavailable.' : 'No active incidents returned for this scope.'}</p>}
+          </div>
+        </section>
+
+        <div className="space-y-4">
+          <section className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+            <div className="flex items-center justify-between gap-3"><h2 className="text-sm font-semibold text-slate-100">Weather reference point</h2><SourcePill status={weather?.status} /></div>
+            {weatherData ? <><p className="mt-4 text-3xl font-semibold text-white">{weatherData.temperature == null ? '—' : `${weatherData.temperature.toFixed(1)}°C`}</p><p className="mt-1 text-xs text-slate-500">Open-Meteo modelled grid · {weatherData.latitude.toFixed(2)}, {weatherData.longitude.toFixed(2)}</p><p className="mt-3 text-[11px] leading-5 text-slate-500">Not an official warning or station observation. Confirm local alerts before acting.</p></> : <p className="mt-4 text-sm text-slate-500">No weather reading is available.</p>}
+            <Link to="/weather" className="mt-3 inline-flex items-center gap-1 text-xs text-sky-300 hover:text-sky-200"><CloudRain size={13} /> Weather intelligence <ArrowRight size={13} /></Link>
+          </section>
+          <section className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+            <div className="flex items-center justify-between gap-3"><h2 className="text-sm font-semibold text-slate-100">Current alerts</h2><SourcePill status={alerts?.status} /></div>
+            {alertRows.length ? <ul className="mt-3 space-y-2">{alertRows.slice(0, 4).map((alert) => <li key={alert.id} className="border-t border-slate-800 pt-2"><p className="text-sm text-slate-200">{alert.title}</p><p className="mt-1 text-xs text-slate-500">{alert.severity} · {alert.audience}{alert.state ? ` · ${alert.state}` : ''}</p></li>)}</ul> : <p className="mt-3 text-sm text-slate-500">{alerts?.status === 'OFFLINE' ? 'Alert feed unavailable.' : 'No alerts were returned.'}</p>}
+          </section>
+        </div>
+      </div>
+
+      <nav className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Operational tools">
+        {[
+          { to: '/maps', label: 'Map and tracking', icon: Map },
+          { to: '/communications', label: 'Scoped communications', icon: Radio },
+          { to: '/analytics', label: 'Data and analytics', icon: Activity },
+          { to: '/data-sources', label: 'System and data sources', icon: Database },
+        ].map(({ to, label, icon: Icon }) => <Link key={to} to={to} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/60 px-4 py-3 text-sm text-slate-300 transition hover:border-sky-500/30 hover:text-white"><span className="flex items-center gap-2"><Icon size={15} className="text-sky-300" />{label}</span><ArrowRight size={14} /></Link>)}
+      </nav>
+    </main>
+  );
+};

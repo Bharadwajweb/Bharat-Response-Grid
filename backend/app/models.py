@@ -332,3 +332,29 @@ class SimulationRun(Base):
     result: Mapped[dict] = mapped_column(JSONB, nullable=False)
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="SIMULATION")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
+
+
+class CommunicationRoom(Base):
+    __tablename__ = "communication_rooms"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    code: Mapped[str] = mapped_column(String(180), nullable=False, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(180), nullable=False)
+    command_level: Mapped[str] = mapped_column(String(24), nullable=False)
+    state_scope: Mapped[str | None] = mapped_column(String(100), index=True)
+    district_scope: Mapped[str | None] = mapped_column(String(100), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    messages: Mapped[list[CommunicationMessage]] = relationship(back_populates="room", cascade="all, delete-orphan")
+
+
+class CommunicationMessage(Base):
+    __tablename__ = "communication_messages"
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    room_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("communication_rooms.id", ondelete="CASCADE"), nullable=False, index=True)
+    sender_user_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    sender_name: Mapped[str] = mapped_column(String(180), nullable=False)
+    sender_role: Mapped[str] = mapped_column(String(40), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
+    room: Mapped[CommunicationRoom] = relationship(back_populates="messages")

@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react';
-import { brgApi, type DataEnvelope } from './brgApi';
+import { brgApi, type DataEnvelope, type WeatherPayload } from './brgApi';
 
 type LiveSnapshot = {
-  weather: DataEnvelope<{ temperature: number; humidity: number; windKph: number; rainfallMm: number }> | null;
+  weather: DataEnvelope<WeatherPayload | null> | null;
   earthquakes: DataEnvelope<unknown[]> | null;
   shelters: DataEnvelope<unknown[]> | null;
   lastSync: string | null;
@@ -69,7 +69,8 @@ export function statusLabel(status: DataEnvelope<unknown>['status'] | undefined)
 
 export function statusTone(status: DataEnvelope<unknown>['status'] | undefined) {
   if (status === 'LIVE') return 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10';
-  if (status === 'CACHED') return 'text-amber-300 border-amber-400/30 bg-amber-400/10';
-  if (status === 'OFFLINE') return 'text-red-300 border-red-400/30 bg-red-400/10';
-  return 'text-cyan-300 border-cyan-400/30 bg-cyan-400/10';
+  if (status === 'CACHED' || status === 'DEGRADED') return 'text-amber-300 border-amber-400/30 bg-amber-400/10';
+  if (status === 'OFFLINE' || status === 'ERROR') return 'text-red-300 border-red-400/30 bg-red-400/10';
+  if (status === 'SIMULATION') return 'text-violet-300 border-violet-400/30 bg-violet-400/10';
+  return 'text-slate-400 border-slate-400/30 bg-slate-400/10';
 }

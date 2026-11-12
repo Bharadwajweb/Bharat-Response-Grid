@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
 
 import httpx
 
 USGS = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson"
 
 
-async def get_latest_earthquakes():
+async def get_latest_earthquakes() -> dict[str, Any]:
     try:
         async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
             response = await client.get(USGS, headers={"Accept": "application/geo+json, application/json"})
@@ -26,12 +27,10 @@ async def get_latest_earthquakes():
                 "id": str(feature.get("id", "")),
                 "magnitude": properties.get("mag"),
                 "depthKm": coordinates[2],
-                "location": properties.get("place"),
-                "timestamp": occurred_at,
-                "timeMs": time_ms,
-                "longitude": coordinates[0],
+                "place": properties.get("place"),
+                "occurredAt": occurred_at,
                 "latitude": coordinates[1],
-                "coordinates": coordinates,
+                "longitude": coordinates[0],
                 "url": properties.get("url"),
                 "source": "USGS Earthquake Hazards Program",
             })

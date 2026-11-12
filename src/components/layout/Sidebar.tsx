@@ -49,6 +49,8 @@ const SidebarContent: React.FC<Props> = ({ collapsed, onClose }) => {
     try { await endAuthSession(); } finally {
       logout();
       await mutate('brg-current-user', undefined, { revalidate: false });
+      await mutate('brg-websocket-token', null, { revalidate: false });
+      await mutate('brg-notifications', undefined, { revalidate: false });
       navigate('/login', { replace: true });
       onClose?.();
     }

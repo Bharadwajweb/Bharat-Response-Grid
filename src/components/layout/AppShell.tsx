@@ -5,6 +5,7 @@ import { Sidebar, MobileSidebar } from './Sidebar';
 import { TopNavbar } from './TopNavbar';
 import { useAppStore } from '../../store/appStore';
 import { brgApi, connectToEvents, type SystemStatus } from '../../services/brgApi';
+import { getAuthToken } from '../../services/neonAuth';
 import { brgSocket } from '../../utils/socket';
 
 const DataModeBanner: React.FC = () => {
@@ -20,9 +21,9 @@ const DataModeBanner: React.FC = () => {
       ? 'border-amber-400/20 bg-amber-400/[0.05] text-amber-100'
       : 'border-rose-400/20 bg-rose-400/[0.05] text-rose-200';
   const message = overall === 'ONLINE'
-    ? 'SYSTEM ONLINE · Check each panel’s source label and timestamp before acting.'
+    ? 'SYSTEM ONLINE · Only LIVE/CACHED source-labelled records are operational; other panels remain prototype context.'
     : overall === 'DEGRADED'
-      ? 'SYSTEM DEGRADED · Verify source status; some feeds or operational records are unavailable.'
+      ? 'SYSTEM DEGRADED · Verify source status; some feeds or operational records are unavailable. Unlabelled dashboard panels are prototype context.'
       : 'BACKEND OFFLINE · Dashboard sample content is not operational data.';
 
   return (
@@ -35,9 +36,9 @@ const DataModeBanner: React.FC = () => {
 
 export const AppShell: React.FC = () => {
   const setConnectionStatus = useAppStore((state) => state.setConnectionStatus);
-  const { data: ticket, mutate: refreshTicket } = useSWR('brg-websocket-ticket', brgApi.webSocketTicket, {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: false,
+  const { data: token, mutate: refreshToken } = useSWR('brg-websocket-token', getAuthToken, {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
     shouldRetryOnError: false,
     dedupingInterval: 3_000,
   });
@@ -45,21 +46,24 @@ export const AppShell: React.FC = () => {
   const onEvent = useCallback((event: unknown) => {
     if (!event || typeof event !== 'object') return;
     const message = event as { type?: unknown; data?: unknown };
-    if (typeof message.type === 'string') brgSocket.emit(message.type, message.data);
+    if (typeof message.type === 'string') {
+      brgSocket.emit(message.type, message.data);
+      window.dispatchEvent(new CustomEvent('brg:realtime', { detail: event }));
+    }
   }, []);
 
   const onSocketStatus = useCallback((connected: boolean) => {
     setConnectionStatus(connected ? 'connected' : 'disconnected');
-    if (!connected) window.setTimeout(() => void refreshTicket(), 2_000);
-  }, [refreshTicket, setConnectionStatus]);
+    if (!connected) window.setTimeout(() => void refreshToken(), 2_000);
+  }, [refreshToken, setConnectionStatus]);
 
   useEffect(() => {
-    if (!ticket?.ticket) {
+    if (!token) {
       setConnectionStatus('disconnected');
       return;
     }
-    return connectToEvents(ticket.ticket, onEvent, onSocketStatus);
-  }, [ticket?.ticket, onEvent, onSocketStatus, setConnectionStatus]);
+    return connectToEvents(token, onEvent, onSocketStatus);
+  }, [token, onEvent, onSocketStatus, setConnectionStatus]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#07111F]">

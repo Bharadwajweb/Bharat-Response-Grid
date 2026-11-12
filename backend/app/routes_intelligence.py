@@ -18,8 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .audit import record_audit
 from .database import get_db, get_optional_db
-from .models import EarthquakeEvent, EvacuationRoute, Incident, ModelPrediction, RiskZone, SafeZone, Shelter, SimulationRun, WeatherData
-from .schemas import RiskAssessmentInput, SimulationCreate
+from .models import EarthquakeEvent, EvacuationRoute, Incident, ModelPrediction, Resource, RiskZone, SafeZone, Shelter, SimulationRun, WeatherData
+from .schemas import RiskAssessmentInput, RouteRequest, SimulationCreate
 from .security import AuthenticatedUser, STAFF_ROLES, get_current_user, require_roles
 from .services.earthquakes import get_latest_earthquakes
 from .services.weather import get_current_weather
@@ -73,8 +73,9 @@ def _location_key(latitude: float, longitude: float) -> str:
 
 def _weather_payload(row: WeatherData, status: str, fallback_reason: str | None = None) -> dict[str, Any]:
     age_seconds = max(0, int((datetime.now(timezone.utc) - row.fetched_at).total_seconds()))
+    data = {**row.current, "latitude": row.latitude, "longitude": row.longitude, "hourly": row.hourly, "daily": row.daily}
     return {
-        "data": {"current": row.current, "hourly": row.hourly, "daily": row.daily, "coordinates": {"latitude": row.latitude, "longitude": row.longitude}},
+        "data": data,
         "status": status,
         "source": row.source,
         "updated_at": row.fetched_at.isoformat(),
@@ -95,13 +96,15 @@ async def weather_current(
         if session is not None:
             try:
                 key = _location_key(latitude, longitude)
+                weather_data = result["data"]
+                current = {key: value for key, value in weather_data.items() if key not in {"hourly", "daily"}}
                 statement = insert(WeatherData).values(
-                    location_key=key, latitude=latitude, longitude=longitude,
-                    current=result["data"]["current"], hourly=result["data"]["hourly"], daily=result["data"]["daily"],
+                    location_key=key, latitude=weather_data["latitude"], longitude=weather_data["longitude"],
+                    current=current, hourly=weather_data["hourly"], daily=weather_data["daily"],
                     source=result["source"], fetched_at=datetime.now(timezone.utc),
                 ).on_conflict_do_update(
                     index_elements=[WeatherData.location_key],
-                    set_={"latitude": latitude, "longitude": longitude, "current": result["data"]["current"], "hourly": result["data"]["hourly"], "daily": result["data"]["daily"], "source": result["source"], "fetched_at": datetime.now(timezone.utc)},
+                    set_={"latitude": weather_data["latitude"], "longitude": weather_data["longitude"], "current": current, "hourly": weather_data["hourly"], "daily": weather_data["daily"], "source": result["source"], "fetched_at": datetime.now(timezone.utc)},
                 )
                 await session.execute(statement)
                 await session.commit()
@@ -142,13 +145,13 @@ async def earthquakes_latest(
                     longitude_value = item["longitude"]
                     statement = insert(EarthquakeEvent).values(
                         external_id=item["id"], source=result["source"], magnitude=item["magnitude"],
-                        depth_km=item["depthKm"], location_text=item["location"], latitude=latitude_value,
+                        depth_km=item["depthKm"], location_text=item["place"], latitude=latitude_value,
                         longitude=longitude_value, geom=WKTElement(f"POINT({longitude_value} {latitude_value})", srid=4326),
-                        occurred_at=datetime.fromisoformat(item["timestamp"]) if item["timestamp"] else None,
+                        occurred_at=datetime.fromisoformat(item["occurredAt"]) if item["occurredAt"] else None,
                         raw_data={"url": item.get("url")}, fetched_at=datetime.now(timezone.utc),
                     ).on_conflict_do_update(
                         index_elements=[EarthquakeEvent.external_id],
-                        set_={"magnitude": item["magnitude"], "depth_km": item["depthKm"], "location_text": item["location"], "latitude": latitude_value, "longitude": longitude_value, "geom": WKTElement(f"POINT({longitude_value} {latitude_value})", srid=4326), "occurred_at": datetime.fromisoformat(item["timestamp"]) if item["timestamp"] else None, "fetched_at": datetime.now(timezone.utc)},
+                        set_={"magnitude": item["magnitude"], "depth_km": item["depthKm"], "location_text": item["place"], "latitude": latitude_value, "longitude": longitude_value, "geom": WKTElement(f"POINT({longitude_value} {latitude_value})", srid=4326), "occurred_at": datetime.fromisoformat(item["occurredAt"]) if item["occurredAt"] else None, "fetched_at": datetime.now(timezone.utc)},
                     )
                     await session.execute(statement)
                 await session.commit()
@@ -166,7 +169,7 @@ async def earthquakes_latest(
             statement = statement.where((EarthquakeEvent.magnitude.is_(None)) | (EarthquakeEvent.magnitude >= min_magnitude))
             cached = (await session.scalars(statement)).all()
             if cached:
-                rows = [{"id": item.external_id, "magnitude": item.magnitude, "depthKm": item.depth_km, "location": item.location_text, "timestamp": item.occurred_at.isoformat() if item.occurred_at else None, "latitude": item.latitude, "longitude": item.longitude, "coordinates": [item.longitude, item.latitude, item.depth_km], "source": item.source} for item in cached]
+                rows = [{"id": item.external_id, "magnitude": item.magnitude, "depthKm": item.depth_km, "place": item.location_text, "occurredAt": item.occurred_at.isoformat() if item.occurred_at else None, "latitude": item.latitude, "longitude": item.longitude, "url": item.raw_data.get("url"), "source": item.source} for item in cached]
                 return {"data": rows, "status": "CACHED", "source": "USGS Earthquake Hazards Program", "updated_at": cached[0].fetched_at.isoformat(), "fallback_reason": result.get("fallback_reason")}
         except SQLAlchemyError:
             await session.rollback()
@@ -198,14 +201,6 @@ async def decision_recommendation(
         except SQLAlchemyError:
             await session.rollback()
     return {"data": result, "status": "SIMULATION", "source": "BRG uncalibrated rules"}
-
-
-class RouteRequest(__import__("pydantic").BaseModel):
-    origin_latitude: float
-    origin_longitude: float
-    destination_latitude: float
-    destination_longitude: float
-    incident_id: str | None = None
 
 
 async def _route_risk(session: AsyncSession | None, geometry: dict[str, Any]) -> tuple[int | None, str | None]:
@@ -313,6 +308,23 @@ async def create_route(
         raise HTTPException(status_code=503, detail="Routing provider is unavailable or returned no route")
 
 
+def _scope_filters(model: Any, user: AuthenticatedUser) -> list[Any]:
+    if user.has_role("CENTRAL_AUTHORITY"):
+        return []
+    if user.has_role("DISTRICT_OFFICER"):
+        if not user.state_scope or not user.district_scope:
+            raise HTTPException(status_code=403, detail="District scope has not been assigned")
+        return [model.state == user.state_scope, model.district == user.district_scope]
+    if user.has_role("STATE_AUTHORITY", "EMERGENCY_OFFICER"):
+        if not user.state_scope:
+            raise HTTPException(status_code=403, detail="State scope has not been assigned")
+        filters = [model.state == user.state_scope]
+        if user.has_role("EMERGENCY_OFFICER") and hasattr(model, "assigned_to"):
+            filters.append(model.assigned_to == user.id)
+        return filters
+    raise HTTPException(status_code=403, detail="Operational staff access is required")
+
+
 @router.get("/map/features")
 async def map_features(
     user: Annotated[AuthenticatedUser, Depends(require_roles(*STAFF_ROLES))],
@@ -320,12 +332,28 @@ async def map_features(
     limit: int = Query(default=500, ge=1, le=1000),
 ):
     features: list[dict[str, Any]] = []
-    incidents = (await session.scalars(select(Incident).where(Incident.latitude.is_not(None), Incident.longitude.is_not(None)).order_by(Incident.created_at.desc()).limit(limit))).all()
+    incident_filters = _scope_filters(Incident, user)
+    incident_statement = select(Incident).where(Incident.latitude.is_not(None), Incident.longitude.is_not(None), *incident_filters).order_by(Incident.created_at.desc()).limit(limit)
+    incidents = (await session.scalars(incident_statement)).all()
     for item in incidents:
-        features.append({"type": "Feature", "id": str(item.id), "geometry": {"type": "Point", "coordinates": [item.longitude, item.latitude]}, "properties": {"kind": "incident", "reference": item.reference, "title": item.title, "severity": item.severity, "status": item.status, "state": item.state, "district": item.district}})
-    shelters = (await session.scalars(select(Shelter).where(Shelter.latitude.is_not(None), Shelter.longitude.is_not(None)).limit(limit))).all()
+        features.append({"type": "Feature", "id": str(item.id), "geometry": {"type": "Point", "coordinates": [item.longitude, item.latitude]}, "properties": {"kind": "incident", "reference": item.reference, "title": item.title, "severity": item.severity, "status": item.status, "state": item.state, "district": item.district, "assignedTo": item.assigned_to}})
+
+    shelter_filters = _scope_filters(Shelter, user)
+    shelters = (await session.scalars(select(Shelter).where(Shelter.latitude.is_not(None), Shelter.longitude.is_not(None), *shelter_filters).limit(limit))).all()
     for item in shelters:
-        features.append({"type": "Feature", "id": str(item.id), "geometry": {"type": "Point", "coordinates": [item.longitude, item.latitude]}, "properties": {"kind": "shelter", "name": item.name, "status": item.status, "capacity": item.capacity, "occupancy": item.occupancy, "state": item.state, "district": item.district}})
+        features.append({"type": "Feature", "id": str(item.id), "geometry": {"type": "Point", "coordinates": [item.longitude, item.latitude]}, "properties": {"kind": "shelter", "title": item.name, "status": item.status, "capacity": item.capacity, "occupancy": item.occupancy, "state": item.state, "district": item.district}})
+
+    resource_filters = _scope_filters(Resource, user)
+    resources = (await session.scalars(select(Resource).where(Resource.latitude.is_not(None), Resource.longitude.is_not(None), *resource_filters).limit(limit))).all()
+    for item in resources:
+        features.append({"type": "Feature", "id": str(item.id), "geometry": {"type": "Point", "coordinates": [item.longitude, item.latitude]}, "properties": {"kind": "resource", "title": item.name, "category": item.category, "status": item.status, "available": item.available, "state": item.state, "district": item.district}})
+
+    risk_filters = _scope_filters(RiskZone, user)
+    risk_rows = (await session.execute(select(RiskZone.id, RiskZone.name, RiskZone.hazard_type, RiskZone.severity, RiskZone.state, RiskZone.district, func.ST_AsGeoJSON(RiskZone.geom).label("geometry")).where(*risk_filters).limit(limit))).mappings().all()
+    for item in risk_rows:
+        if item["geometry"]:
+            features.append({"type": "Feature", "id": str(item["id"]), "geometry": json.loads(item["geometry"]), "properties": {"kind": "risk_zone", "title": item["name"], "hazardType": item["hazard_type"], "severity": item["severity"], "state": item["state"], "district": item["district"]}})
+
     earthquakes = (await session.scalars(select(EarthquakeEvent).where(EarthquakeEvent.latitude.between(*INDIA_BOUNDS[:2]), EarthquakeEvent.longitude.between(*INDIA_BOUNDS[2:])).order_by(EarthquakeEvent.occurred_at.desc()).limit(100))).all()
     for item in earthquakes:
         features.append({"type": "Feature", "id": item.external_id, "geometry": {"type": "Point", "coordinates": [item.longitude, item.latitude]}, "properties": {"kind": "earthquake", "magnitude": item.magnitude, "depthKm": item.depth_km, "title": item.location_text, "occurredAt": item.occurred_at}})
@@ -337,16 +365,17 @@ async def analytics_summary(
     user: Annotated[AuthenticatedUser, Depends(require_roles(*STAFF_ROLES))],
     session: Annotated[AsyncSession, Depends(get_db)],
 ):
-    incident_counts = (await session.execute(select(Incident.hazard_type, func.count(Incident.id)).group_by(Incident.hazard_type))).all()
+    incident_scope = _scope_filters(Incident, user)
+    if user.has_role("EMERGENCY_OFFICER"):
+        incident_scope.append(Incident.assigned_to == user.id)
+    incident_counts = (await session.execute(select(Incident.hazard_type, func.count(Incident.id)).where(*incident_scope).group_by(Incident.hazard_type))).all()
     total = sum(int(count) for _, count in incident_counts)
-    active = await session.scalar(select(func.count()).select_from(Incident).where(Incident.status.in_(["reported", "verified", "responding", "contained"])))
-    resolved = await session.scalar(select(func.count()).select_from(Incident).where(Incident.status == "resolved"))
-    avg_response = await session.scalar(select(func.avg(Incident.resolution_minutes)).where(Incident.resolution_minutes.is_not(None)))
-    shelter_totals = (await session.execute(select(func.sum(Shelter.capacity), func.sum(Shelter.occupancy)).where(Shelter.status.in_(["active", "full"])))).one()
+    active = await session.scalar(select(func.count()).select_from(Incident).where(*incident_scope, Incident.status.in_(["reported", "verified", "responding", "contained"])))
+    resolved = await session.scalar(select(func.count()).select_from(Incident).where(*incident_scope, Incident.status == "resolved"))
+    avg_response = await session.scalar(select(func.avg(Incident.resolution_minutes)).where(*incident_scope, Incident.resolution_minutes.is_not(None)))
+    shelter_scope = _scope_filters(Shelter, user)
+    shelter_totals = (await session.execute(select(func.sum(Shelter.capacity), func.sum(Shelter.occupancy)).where(*shelter_scope, Shelter.status.in_(["active", "full"])))).one()
     capacity, occupancy = shelter_totals
-    if user.has_role("STATE_AUTHORITY") and user.state_scope:
-        scoped_total = await session.scalar(select(func.count()).select_from(Incident).where(Incident.state == user.state_scope))
-        total = int(scoped_total or 0)
     data = {
         "incidentCount": total,
         "activeIncidents": int(active or 0),

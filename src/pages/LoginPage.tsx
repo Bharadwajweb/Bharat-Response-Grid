@@ -54,6 +54,7 @@ export const LoginPage: React.FC = () => {
       const user = await getCurrentUser();
       setCurrentUser(user);
       await mutate('brg-current-user', user, { revalidate: false });
+      await mutate('brg-websocket-token', token, { revalidate: false });
       await recordAuthEvent('login');
       navigate(returnTo, { replace: true });
     } catch (error) {

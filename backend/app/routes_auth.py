@@ -8,10 +8,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .audit import record_audit
-from .database import get_optional_db
+from .database import get_optional_db, optional_db_session
 from .models import AuditLog
 from .realtime import realtime_hub
-from .security import AuthenticatedUser, get_current_user
+from .security import AuthenticatedUser, authenticate_access_token, get_current_user
 
 router = APIRouter(prefix="/api")
 
@@ -27,8 +27,8 @@ async def get_me(user: Annotated[AuthenticatedUser, Depends(get_current_user)]):
         "CENTRAL_AUTHORITY": ("national_admin", "national"),
         "STATE_AUTHORITY": ("state_admin", "state"),
         "DISTRICT_OFFICER": ("district_admin", "district"),
-        "EMERGENCY_OFFICER": ("responder", "state"),
-        "CITIZEN": ("citizen", "district"),
+        "EMERGENCY_OFFICER": ("responder", "district" if user.district_scope else "state"),
+        "CITIZEN": ("citizen", "citizen"),
     }
     app_role, command_level = role_map[role]
     name = user.name or (user.email.split("@")[0] if user.email else "BRG User")
@@ -70,21 +70,25 @@ async def auth_event(
         return {"status": "OFFLINE", "detail": "Audit event could not be persisted"}
 
 
-@router.post("/auth/ws-ticket")
-async def create_websocket_ticket(user: Annotated[AuthenticatedUser, Depends(get_current_user)]):
-    return {"ticket": await realtime_hub.issue_ticket(user), "expiresInSeconds": 30}
-
-
 @router.websocket("/events")
-async def events_socket(websocket: WebSocket, ticket: str):
+async def events_socket(websocket: WebSocket):
     origin = websocket.headers.get("origin")
     configured = {item.strip().rstrip("/") for item in __import__("os").getenv("FRONTEND_ORIGINS", "").split(",") if item.strip()}
-    configured.update({"http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:4173", "http://127.0.0.1:4173"})
-    if origin and origin.rstrip("/") not in configured:
+    configured.update({"http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5174", "http://127.0.0.1:5174", "http://localhost:4173", "http://127.0.0.1:4173"})
+    forwarded_host = websocket.headers.get("x-forwarded-host") or websocket.headers.get("host")
+    forwarded_proto = websocket.headers.get("x-forwarded-proto", "https")
+    same_origin = f"{forwarded_proto}://{forwarded_host}".rstrip("/") if forwarded_host else None
+    if origin and origin.rstrip("/") not in configured and origin.rstrip("/") != same_origin:
         await websocket.close(code=4403)
         return
-    user = await realtime_hub.consume_ticket(ticket)
-    if user is None:
+    protocols = [protocol.strip() for protocol in websocket.headers.get("sec-websocket-protocol", "").split(",") if protocol.strip()]
+    if len(protocols) < 2 or protocols[0] != "brg-auth":
+        await websocket.close(code=4401)
+        return
+    try:
+        async with optional_db_session() as session:
+            user = await authenticate_access_token(protocols[1], session)
+    except HTTPException:
         await websocket.close(code=4401)
         return
     await realtime_hub.serve(websocket, user)
