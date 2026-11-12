@@ -2,22 +2,22 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
 import { LoginPage } from './pages/LoginPage';
-import { CommandOverviewPage } from './pages/CommandOverviewPage';
-import { IncidentManagementPage } from './pages/IncidentManagementPage';
-import { EmergencyOperationsPage } from './pages/EmergencyOperationsPage';
-import { MapsTrackingPage } from './pages/MapsTrackingPage';
-import { WeatherIntelligencePage } from './pages/WeatherIntelligencePage';
-import { ThreatSimulationPage } from './pages/ThreatSimulationPage';
-import { DecisionSupportPage } from './pages/DecisionSupportPage';
-import { EarthquakeIntelligencePage } from './pages/EarthquakeIntelligencePage';
-import { ResearchEvaluationPage } from './pages/ResearchEvaluationPage';
-import { SystemStatusPage } from './pages/SystemStatusPage';
-import { ResourceManagementPage } from './pages/ResourceManagementPage';
-import { CommunicationsPage } from './pages/CommunicationsPage';
-import { AnalyticsCenterPage } from './pages/AnalyticsCenterPage';
-import { CitizenPortalPage } from './pages/CitizenPortalPage';
-import { UserManagementPage } from './pages/UserManagementPage';
-import { SettingsPage } from './pages/SettingsPage';
+const CommandOverviewPage = React.lazy(() => import('./pages/CommandOverviewPage').then((module) => ({ default: module.CommandOverviewPage })));
+const IncidentManagementPage = React.lazy(() => import('./pages/IncidentManagementPage').then((module) => ({ default: module.IncidentManagementPage })));
+const EmergencyOperationsPage = React.lazy(() => import('./pages/EmergencyOperationsPage').then((module) => ({ default: module.EmergencyOperationsPage })));
+const MapsTrackingPage = React.lazy(() => import('./pages/MapsTrackingPage').then((module) => ({ default: module.MapsTrackingPage })));
+const WeatherIntelligencePage = React.lazy(() => import('./pages/WeatherIntelligencePage').then((module) => ({ default: module.WeatherIntelligencePage })));
+const ThreatSimulationPage = React.lazy(() => import('./pages/ThreatSimulationPage').then((module) => ({ default: module.ThreatSimulationPage })));
+const DecisionSupportPage = React.lazy(() => import('./pages/DecisionSupportPage').then((module) => ({ default: module.DecisionSupportPage })));
+const EarthquakeIntelligencePage = React.lazy(() => import('./pages/EarthquakeIntelligencePage').then((module) => ({ default: module.EarthquakeIntelligencePage })));
+const ResearchEvaluationPage = React.lazy(() => import('./pages/ResearchEvaluationPage').then((module) => ({ default: module.ResearchEvaluationPage })));
+const SystemStatusPage = React.lazy(() => import('./pages/SystemStatusPage').then((module) => ({ default: module.SystemStatusPage })));
+const ResourceManagementPage = React.lazy(() => import('./pages/ResourceManagementPage').then((module) => ({ default: module.ResourceManagementPage })));
+const CommunicationsPage = React.lazy(() => import('./pages/CommunicationsPage').then((module) => ({ default: module.CommunicationsPage })));
+const AnalyticsCenterPage = React.lazy(() => import('./pages/AnalyticsCenterPage').then((module) => ({ default: module.AnalyticsCenterPage })));
+const CitizenPortalPage = React.lazy(() => import('./pages/CitizenPortalPage').then((module) => ({ default: module.CitizenPortalPage })));
+const UserManagementPage = React.lazy(() => import('./pages/UserManagementPage').then((module) => ({ default: module.UserManagementPage })));
+const SettingsPage = React.lazy(() => import('./pages/SettingsPage').then((module) => ({ default: module.SettingsPage })));
 import { useAppStore } from './store/appStore';
 import './i18n';
 
@@ -58,6 +58,12 @@ const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
+const RouteLoadingFallback: React.FC = () => (
+  <div className="grid min-h-[50vh] place-items-center text-sm text-slate-400" role="status" aria-live="polite">
+    <span className="rounded-lg border border-white/10 bg-[#0D1828] px-4 py-2">Loading command page…</span>
+  </div>
+);
+
 function App() {
   const { theme } = useAppStore();
 
@@ -69,7 +75,8 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
+      <React.Suspense fallback={<RouteLoadingFallback />}>
+        <Routes>
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/citizen" element={<CitizenPortalPage />} />
@@ -111,7 +118,8 @@ function App() {
 
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+        </Routes>
+      </React.Suspense>
     </BrowserRouter>
   );
 }

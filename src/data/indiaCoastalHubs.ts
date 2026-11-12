@@ -1,0 +1,73 @@
+export type CoastalHubKind = 'Port' | 'Coastal city' | 'Island hub';
+
+export interface IndiaCoastalHub {
+  id: string;
+  name: string;
+  stateOrUT: string;
+  kind: CoastalHubKind;
+  coordinates: [number, number];
+}
+
+/** Curated reference locations; these are not official shoreline boundaries or live sensor positions. */
+export const INDIA_COASTAL_HUBS: IndiaCoastalHub[] = [
+  { id: 'gj-mundra', name: 'Mundra', stateOrUT: 'Gujarat', kind: 'Port', coordinates: [22.8397, 69.7219] },
+  { id: 'gj-kandla', name: 'Kandla', stateOrUT: 'Gujarat', kind: 'Port', coordinates: [23.0333, 70.2167] },
+  { id: 'gj-dwarka', name: 'Dwarka', stateOrUT: 'Gujarat', kind: 'Coastal city', coordinates: [22.2442, 68.9685] },
+  { id: 'gj-okha', name: 'Okha', stateOrUT: 'Gujarat', kind: 'Port', coordinates: [22.4675, 69.0719] },
+  { id: 'gj-jamnagar', name: 'Jamnagar', stateOrUT: 'Gujarat', kind: 'Coastal city', coordinates: [22.4707, 70.0577] },
+  { id: 'gj-porbandar', name: 'Porbandar', stateOrUT: 'Gujarat', kind: 'Port', coordinates: [21.6417, 69.6293] },
+  { id: 'gj-veraval', name: 'Veraval', stateOrUT: 'Gujarat', kind: 'Port', coordinates: [20.9077, 70.3676] },
+  { id: 'gj-surat', name: 'Surat', stateOrUT: 'Gujarat', kind: 'Coastal city', coordinates: [21.1702, 72.8311] },
+  { id: 'mh-dahanu', name: 'Dahanu', stateOrUT: 'Maharashtra', kind: 'Coastal city', coordinates: [19.9902, 72.7431] },
+  { id: 'mh-mumbai', name: 'Mumbai', stateOrUT: 'Maharashtra', kind: 'Port', coordinates: [19.0760, 72.8777] },
+  { id: 'mh-alibag', name: 'Alibag', stateOrUT: 'Maharashtra', kind: 'Coastal city', coordinates: [18.6414, 72.8722] },
+  { id: 'mh-ratnagiri', name: 'Ratnagiri', stateOrUT: 'Maharashtra', kind: 'Port', coordinates: [16.9902, 73.3120] },
+  { id: 'mh-malvan', name: 'Malvan', stateOrUT: 'Maharashtra', kind: 'Coastal city', coordinates: [16.0590, 73.4627] },
+  { id: 'ga-panaji', name: 'Panaji', stateOrUT: 'Goa', kind: 'Coastal city', coordinates: [15.4909, 73.8278] },
+  { id: 'ga-vasco', name: 'Vasco da Gama', stateOrUT: 'Goa', kind: 'Port', coordinates: [15.3982, 73.8113] },
+  { id: 'ga-canacona', name: 'Canacona', stateOrUT: 'Goa', kind: 'Coastal city', coordinates: [15.0094, 74.0438] },
+  { id: 'ka-karwar', name: 'Karwar', stateOrUT: 'Karnataka', kind: 'Port', coordinates: [14.8136, 74.1297] },
+  { id: 'ka-gokarna', name: 'Gokarna', stateOrUT: 'Karnataka', kind: 'Coastal city', coordinates: [14.5479, 74.3188] },
+  { id: 'ka-udupi', name: 'Udupi', stateOrUT: 'Karnataka', kind: 'Coastal city', coordinates: [13.3409, 74.7421] },
+  { id: 'ka-mangaluru', name: 'Mangaluru', stateOrUT: 'Karnataka', kind: 'Port', coordinates: [12.9141, 74.8560] },
+  { id: 'kl-kasaragod', name: 'Kasaragod', stateOrUT: 'Kerala', kind: 'Coastal city', coordinates: [12.4996, 74.9869] },
+  { id: 'kl-kannur', name: 'Kannur', stateOrUT: 'Kerala', kind: 'Coastal city', coordinates: [11.8745, 75.3704] },
+  { id: 'kl-kozhikode', name: 'Kozhikode', stateOrUT: 'Kerala', kind: 'Coastal city', coordinates: [11.2588, 75.7804] },
+  { id: 'kl-kochi', name: 'Kochi', stateOrUT: 'Kerala', kind: 'Port', coordinates: [9.9312, 76.2673] },
+  { id: 'kl-alappuzha', name: 'Alappuzha', stateOrUT: 'Kerala', kind: 'Coastal city', coordinates: [9.4981, 76.3388] },
+  { id: 'kl-thiruvananthapuram', name: 'Thiruvananthapuram', stateOrUT: 'Kerala', kind: 'Coastal city', coordinates: [8.5241, 76.9366] },
+  { id: 'tn-chennai', name: 'Chennai', stateOrUT: 'Tamil Nadu', kind: 'Port', coordinates: [13.0827, 80.2707] },
+  { id: 'tn-mahabalipuram', name: 'Mahabalipuram', stateOrUT: 'Tamil Nadu', kind: 'Coastal city', coordinates: [12.6269, 80.1927] },
+  { id: 'tn-cuddalore', name: 'Cuddalore', stateOrUT: 'Tamil Nadu', kind: 'Port', coordinates: [11.7480, 79.7714] },
+  { id: 'tn-nagapattinam', name: 'Nagapattinam', stateOrUT: 'Tamil Nadu', kind: 'Port', coordinates: [10.7672, 79.8449] },
+  { id: 'tn-rameswaram', name: 'Rameswaram', stateOrUT: 'Tamil Nadu', kind: 'Coastal city', coordinates: [9.2881, 79.3129] },
+  { id: 'tn-thoothukudi', name: 'Thoothukudi', stateOrUT: 'Tamil Nadu', kind: 'Port', coordinates: [8.7642, 78.1348] },
+  { id: 'tn-kanyakumari', name: 'Kanyakumari', stateOrUT: 'Tamil Nadu', kind: 'Coastal city', coordinates: [8.0883, 77.5385] },
+  { id: 'py-puducherry', name: 'Puducherry', stateOrUT: 'Puducherry', kind: 'Coastal city', coordinates: [11.9416, 79.8083] },
+  { id: 'py-karaikal', name: 'Karaikal', stateOrUT: 'Puducherry', kind: 'Coastal city', coordinates: [10.9254, 79.8380] },
+  { id: 'py-mahe', name: 'Mahe', stateOrUT: 'Puducherry', kind: 'Coastal city', coordinates: [11.7020, 75.5360] },
+  { id: 'py-yanam', name: 'Yanam', stateOrUT: 'Puducherry', kind: 'Coastal city', coordinates: [16.7333, 82.2167] },
+  { id: 'ap-kalingapatnam', name: 'Kalingapatnam', stateOrUT: 'Andhra Pradesh', kind: 'Coastal city', coordinates: [18.3333, 84.1167] },
+  { id: 'ap-visakhapatnam', name: 'Visakhapatnam', stateOrUT: 'Andhra Pradesh', kind: 'Port', coordinates: [17.6868, 83.2185] },
+  { id: 'ap-kakinada', name: 'Kakinada', stateOrUT: 'Andhra Pradesh', kind: 'Port', coordinates: [16.9891, 82.2475] },
+  { id: 'ap-machilipatnam', name: 'Machilipatnam', stateOrUT: 'Andhra Pradesh', kind: 'Port', coordinates: [16.1875, 81.1389] },
+  { id: 'ap-nizampatnam', name: 'Nizampatnam', stateOrUT: 'Andhra Pradesh', kind: 'Coastal city', coordinates: [15.9000, 80.6667] },
+  { id: 'ap-krishnapatnam', name: 'Krishnapatnam', stateOrUT: 'Andhra Pradesh', kind: 'Port', coordinates: [14.2500, 80.1220] },
+  { id: 'od-chandipur', name: 'Chandipur', stateOrUT: 'Odisha', kind: 'Coastal city', coordinates: [21.4655, 87.0121] },
+  { id: 'od-dhamra', name: 'Dhamra', stateOrUT: 'Odisha', kind: 'Port', coordinates: [20.7770, 86.9574] },
+  { id: 'od-paradip', name: 'Paradip', stateOrUT: 'Odisha', kind: 'Port', coordinates: [20.3167, 86.6167] },
+  { id: 'od-puri', name: 'Puri', stateOrUT: 'Odisha', kind: 'Coastal city', coordinates: [19.8135, 85.8312] },
+  { id: 'od-gopalpur', name: 'Gopalpur', stateOrUT: 'Odisha', kind: 'Port', coordinates: [19.2580, 84.9050] },
+  { id: 'wb-digha', name: 'Digha', stateOrUT: 'West Bengal', kind: 'Coastal city', coordinates: [21.6280, 87.5080] },
+  { id: 'wb-haldia', name: 'Haldia', stateOrUT: 'West Bengal', kind: 'Port', coordinates: [22.0667, 88.0698] },
+  { id: 'wb-bakkhali', name: 'Bakkhali', stateOrUT: 'West Bengal', kind: 'Coastal city', coordinates: [21.5620, 88.2600] },
+  { id: 'dd-daman', name: 'Daman', stateOrUT: 'Dadra and Nagar Haveli and Daman and Diu', kind: 'Coastal city', coordinates: [20.3974, 72.8328] },
+  { id: 'dd-diu', name: 'Diu', stateOrUT: 'Dadra and Nagar Haveli and Daman and Diu', kind: 'Coastal city', coordinates: [20.7144, 70.9870] },
+  { id: 'an-port-blair', name: 'Sri Vijaya Puram (Port Blair)', stateOrUT: 'Andaman and Nicobar Islands', kind: 'Island hub', coordinates: [11.6234, 92.7265] },
+  { id: 'an-diglipur', name: 'Diglipur', stateOrUT: 'Andaman and Nicobar Islands', kind: 'Island hub', coordinates: [13.2500, 92.9667] },
+  { id: 'an-rangat', name: 'Rangat', stateOrUT: 'Andaman and Nicobar Islands', kind: 'Island hub', coordinates: [12.5000, 92.9000] },
+  { id: 'an-car-nicobar', name: 'Car Nicobar', stateOrUT: 'Andaman and Nicobar Islands', kind: 'Island hub', coordinates: [9.1500, 92.8167] },
+  { id: 'ld-kavaratti', name: 'Kavaratti', stateOrUT: 'Lakshadweep', kind: 'Island hub', coordinates: [10.5669, 72.6420] },
+  { id: 'ld-agatti', name: 'Agatti', stateOrUT: 'Lakshadweep', kind: 'Island hub', coordinates: [10.8505, 72.1932] },
+  { id: 'ld-minicoy', name: 'Minicoy', stateOrUT: 'Lakshadweep', kind: 'Island hub', coordinates: [8.2773, 73.0485] },
+];

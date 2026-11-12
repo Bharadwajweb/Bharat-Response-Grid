@@ -38,6 +38,7 @@ import { ProgressBar } from '../components/ui/Card';
 import { brgSocket } from '../utils/socket';
 import type { Incident, Shelter, Team, Resource, Severity } from '../types';
 import { getAllStatesAndUTs, getDistrictsForState, getGeographyCoverageSummary } from '../data/indiaGeographyMaster';
+import { INDIA_COASTAL_HUBS } from '../data/indiaCoastalHubs';
 import { filterIncidents, hasValidIncidentCoordinates, INCIDENT_SEVERITIES, INCIDENT_STATUSES } from '../data/incidentValidation';
 
 // ─── Initial Map View Configuration ───
@@ -250,41 +251,39 @@ export const MapsTrackingPage: React.FC = () => {
 
   // Map Tile Style: OSM Standard, Dark, or Satellite Topo
   const [tileProvider, setTileProvider] = useState<'osm' | 'dark' | 'satellite'>('osm');
-  const [selectedStateCode, setSelectedStateCode] = useState('');
-  const [selectedDistrictId, setSelectedDistrictId] = useState('');
+  const [selectedStateCode, setSelectedStateCode] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedCode = params.get('state') || '';
+    const state = getAllStatesAndUTs().find((item) => item.code === requestedCode);
+    const canSelectState = !currentUser?.stateAssigned || currentUser.commandLevel === 'national'
+      || state?.name.toLowerCase() === currentUser.stateAssigned.toLowerCase();
+    return state && canSelectState ? state.code : '';
+  });
+  const [selectedDistrictId, setSelectedDistrictId] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedId = params.get('district') || '';
+    const state = getAllStatesAndUTs().find((item) => item.code === (params.get('state') || ''));
+    if (!state || !requestedId) return '';
+    const district = getDistrictsForState(state.code).find((item) => item.id === requestedId);
+    const canSelectDistrict = !currentUser?.districtAssigned || currentUser.commandLevel !== 'district'
+      || district?.name.toLowerCase() === currentUser.districtAssigned.toLowerCase();
+    return district && canSelectDistrict ? district.id : '';
+  });
   const [incidentSearch, setIncidentSearch] = useState('');
   const [incidentStatus, setIncidentStatus] = useState('all');
   const [incidentSeverity, setIncidentSeverity] = useState('all');
-  const allStatesAndUTs = getAllStatesAndUTs();
+  const allStatesAndUTs = useMemo(() => getAllStatesAndUTs(), []);
   const permittedStatesAndUTs = useMemo(() => {
     if (!currentUser?.stateAssigned || currentUser.commandLevel === 'national') return allStatesAndUTs;
     return allStatesAndUTs.filter((state) => state.name.toLowerCase() === currentUser.stateAssigned?.toLowerCase());
-  }, [allStatesAndUTs, currentUser?.commandLevel, currentUser?.stateAssigned]);
+  }, [allStatesAndUTs, currentUser]);
   const statesAndUTs = permittedStatesAndUTs;
   const selectedState = statesAndUTs.find((state) => state.code === selectedStateCode);
   const districtsForSelectedState = useMemo(() => selectedState
     ? getDistrictsForState(selectedState.code).filter((district) => !currentUser?.districtAssigned || currentUser.commandLevel !== 'district' || district.name.toLowerCase() === currentUser.districtAssigned.toLowerCase())
-    : [], [selectedState, currentUser?.commandLevel, currentUser?.districtAssigned]);
+    : [], [selectedState, currentUser]);
   const geographyCoverage = useMemo(() => getGeographyCoverageSummary(), []);
   const geographyCoveragePercent = Math.round((geographyCoverage.loadedDistricts / geographyCoverage.officialDistricts) * 100);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const stateFromUrl = params.get('state') || '';
-    const districtFromUrl = params.get('district') || '';
-    if (statesAndUTs.some((state) => state.code === stateFromUrl)) setSelectedStateCode(stateFromUrl);
-    if (districtFromUrl) setSelectedDistrictId(districtFromUrl);
-  }, []);
-
-  useEffect(() => {
-    if (!selectedStateCode) {
-      if (selectedDistrictId) setSelectedDistrictId('');
-      return;
-    }
-    if (selectedDistrictId && !districtsForSelectedState.some((district) => district.id === selectedDistrictId)) {
-      setSelectedDistrictId('');
-    }
-  }, [selectedStateCode, selectedDistrictId, districtsForSelectedState]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -299,13 +298,15 @@ export const MapsTrackingPage: React.FC = () => {
       const loaded = getDistrictsForState(state.code).length;
       rows.push([state.name, state.type, String(state.totalOfficialDistricts), String(loaded), String(Math.round((loaded / state.totalOfficialDistricts) * 100))]);
     });
-    const csv = rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(',')).join('\\n');
+    const csv = rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(',')).join('\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const anchor = document.createElement('a');
     anchor.href = url;
     anchor.download = 'bharat-response-grid-geography-coverage.csv';
+    document.body.append(anchor);
     anchor.click();
-    URL.revokeObjectURL(url);
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }, [statesAndUTs]);
 
   // Grouped Layer Visibility Controls
@@ -317,6 +318,7 @@ export const MapsTrackingPage: React.FC = () => {
     weather: true,
     earthquakes: true,
     citizenReports: true,
+    coastalHubs: true,
 
     // RESPONSE
     shelters: true,
@@ -538,13 +540,15 @@ export const MapsTrackingPage: React.FC = () => {
       incident.severity,
       incident.status,
     ]));
-    const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\\n');
+    const csv = rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     const anchor = document.createElement('a');
     anchor.href = url;
     anchor.download = 'brg-filtered-incidents.csv';
+    document.body.append(anchor);
     anchor.click();
-    URL.revokeObjectURL(url);
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }, [activeIncidents]);
 
   return (
@@ -690,6 +694,24 @@ export const MapsTrackingPage: React.FC = () => {
                 <span>Citizen Reports</span>
               </span>
               <span className="font-mono text-[11px]">{citizenReports.length}</span>
+            </button>
+
+            <button
+              type="button"
+              aria-pressed={layerGroups.coastalHubs}
+              title="Static reference points for major coastal cities, ports, and island hubs."
+              onClick={() => toggleLayer('coastalHubs')}
+              className={`w-full flex items-center justify-between px-2 py-1 rounded text-xs transition-colors ${
+                layerGroups.coastalHubs
+                  ? 'bg-cyan-500/15 text-cyan-300 font-semibold border border-cyan-500/25'
+                  : 'text-slate-400 hover:bg-white/5'
+              }`}
+            >
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                <span>Coastal hubs</span>
+              </span>
+              <span className="font-mono text-[10px]">{INDIA_COASTAL_HUBS.length} refs</span>
             </button>
 
             {/* Weather Observations */}
@@ -1004,6 +1026,25 @@ export const MapsTrackingPage: React.FC = () => {
               maxZoom={19}
             />
           )}
+
+          {/* Coastal reference hubs across India's mainland coast and island territories */}
+          {layerGroups.coastalHubs && INDIA_COASTAL_HUBS.map((hub) => (
+            <CircleMarker
+              key={hub.id}
+              center={hub.coordinates}
+              radius={5}
+              pathOptions={{ color: '#082F49', fillColor: '#22D3EE', fillOpacity: 0.95, weight: 1.5 }}
+            >
+              <Popup>
+                <div className="p-1 min-w-[170px]">
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-cyan-400 mb-1">Coastal reference hub</p>
+                  <h4 className="text-xs font-bold text-slate-100">{hub.name}</h4>
+                  <p className="text-[10px] text-slate-300 mt-1">{hub.stateOrUT}</p>
+                  <p className="text-[9px] text-slate-400 mt-1">{hub.kind} · static location reference</p>
+                </div>
+              </Popup>
+            </CircleMarker>
+          ))}
 
           {/* ─── Layer 1: Lower-Risk Safe Zones (High Ground) ─── */}
           {layerGroups.safeZones &&

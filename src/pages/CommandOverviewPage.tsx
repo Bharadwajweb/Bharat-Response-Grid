@@ -406,7 +406,7 @@ export const CommandOverviewPage: React.FC = () => {
         {/* ─── Main Workspace: 65% Dominant Map / 35% Operational Intelligence ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
           {/* ─── 65% Dominant Live GIS Map (8 cols on lg) ─── */}
-          <div className="lg:col-span-8 flex flex-col rounded-2xl bg-[#091526] border border-white/10 overflow-hidden shadow-2xl relative min-h-[580px] lg:h-[720px]">
+          <div className="lg:col-span-8 flex flex-col rounded-2xl bg-[#091526] border border-white/10 overflow-hidden shadow-2xl relative isolate min-h-[580px] lg:h-[720px]">
             {/* In-Map Top Command Toolbar */}
             <div className="px-3.5 py-2.5 bg-[#0A1627] border-b border-white/10 flex items-center justify-between flex-wrap gap-2 z-10">
               <div className="flex items-center gap-2">

@@ -161,7 +161,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onClose }) =
             <div key={section.title} className="space-y-0.5">
               {!collapsed && (
                 <div className="px-2 pb-1">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">
                     {section.title}
                   </span>
                 </div>
