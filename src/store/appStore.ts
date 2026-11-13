@@ -4,9 +4,12 @@ import { JURISDICTION_PRESETS } from '../data/mockData';
 import { brgSocket } from '../utils/socket';
 
 interface AppState {
+  currentLocation: { latitude: number; longitude: number; accuracy: number; updatedAt: string } | null;
+
   // Auth
   currentUser: User | null;
   isAuthenticated: boolean;
+  authToken: string | null;
 
   // Theme
   theme: ThemeMode;
@@ -39,6 +42,8 @@ interface AppState {
 
   // Actions
   setCurrentUser: (user: User | null) => void;
+  setCurrentLocation: (location: AppState['currentLocation']) => void;
+  setAuthToken: (token: string | null) => void;
   setAuthenticated: (v: boolean) => void;
   setJurisdiction: (j: JurisdictionScope) => void;
   setTheme: (t: ThemeMode) => void;
@@ -55,6 +60,22 @@ interface AppState {
 
 const defaultJurisdiction = JURISDICTION_PRESETS[0];
 
+const getPersistedAuth = () => {
+  if (typeof window === 'undefined') return { currentUser: null, isAuthenticated: false, authToken: null };
+  try {
+    const saved = window.localStorage.getItem('brg-auth-session') || window.sessionStorage.getItem('brg-auth-session');
+    if (!saved) return { currentUser: null, isAuthenticated: false, authToken: null };
+    const parsed = JSON.parse(saved) as { currentUser?: User | null; isAuthenticated?: boolean; authToken?: string | null };
+    return {
+      currentUser: parsed.currentUser ?? null,
+      isAuthenticated: Boolean(parsed.isAuthenticated && parsed.currentUser),
+      authToken: parsed.authToken ?? null,
+    };
+  } catch {
+    return { currentUser: null, isAuthenticated: false, authToken: null };
+  }
+};
+
 export const useAppStore = create<AppState>((set, get) => {
   // Bind real socket connection listener once
   if (typeof window !== 'undefined') {
@@ -67,11 +88,14 @@ export const useAppStore = create<AppState>((set, get) => {
     });
   }
 
+  const persistedAuth = getPersistedAuth();
   const initialSocketLive = brgSocket.connected;
 
   return {
-    currentUser: null,
-    isAuthenticated: false,
+    currentLocation: null,
+    currentUser: persistedAuth.currentUser,
+    isAuthenticated: persistedAuth.isAuthenticated,
+    authToken: persistedAuth.authToken,
     theme: 'dark',
     language: 'en',
     sidebarCollapsed: false,
@@ -86,8 +110,17 @@ export const useAppStore = create<AppState>((set, get) => {
     notificationCount: 3,
     onlineResponders: 48,
 
+    setCurrentLocation: (location) => set({ currentLocation: location }),
     setCurrentUser: (user) => {
       set({ currentUser: user });
+      if (typeof window !== 'undefined' && user) {
+        const session = JSON.stringify({
+          currentUser: user,
+          isAuthenticated: get().isAuthenticated,
+          authToken: get().authToken,
+        });
+        window.localStorage.setItem('brg-auth-session', session);
+      }
       if (user) {
         // Automatically align jurisdiction with user's assignment
         if (user.districtAssigned) {
@@ -111,7 +144,36 @@ export const useAppStore = create<AppState>((set, get) => {
         }
       }
     },
-    setAuthenticated: (v) => set({ isAuthenticated: v }),
+    setAuthToken: (token) => {
+      set({ authToken: token });
+      if (typeof window !== 'undefined') {
+        const session = JSON.stringify({
+          currentUser: get().currentUser,
+          isAuthenticated: get().isAuthenticated,
+          authToken: token,
+        });
+        if (token) window.localStorage.setItem('brg-auth-session', session);
+        else {
+          window.localStorage.removeItem('brg-auth-session');
+          window.sessionStorage.removeItem('brg-auth-session');
+        }
+      }
+    },
+    setAuthenticated: (v) => {
+      set({ isAuthenticated: v });
+      if (typeof window !== 'undefined') {
+        const session = JSON.stringify({
+          currentUser: get().currentUser,
+          isAuthenticated: v,
+          authToken: get().authToken,
+        });
+        if (v && get().currentUser) {
+          window.localStorage.setItem('brg-auth-session', session);
+        } else {
+          window.localStorage.removeItem('brg-auth-session');
+        }
+      }
+    },
     setJurisdiction: (j) => {
       set({
         activeJurisdiction: j,
@@ -148,6 +210,12 @@ export const useAppStore = create<AppState>((set, get) => {
     },
     setDebugPanelVisible: (v) => set({ debugPanelVisible: v }),
     setNotificationCount: (n) => set({ notificationCount: n }),
-    logout: () => set({ isAuthenticated: false, currentUser: null }),
+    logout: () => {
+      set({ isAuthenticated: false, currentUser: null, authToken: null });
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('brg-auth-session');
+        window.sessionStorage.removeItem('brg-auth-session');
+      }
+    },
   };
 });

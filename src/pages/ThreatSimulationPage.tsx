@@ -6,6 +6,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker, Circle, Polyline, Popup } from 'react-leaflet';
+import { CurrentLocationMarker } from '../components/maps/CurrentLocationMarker';
 import 'leaflet/dist/leaflet.css';
 import type { DisasterType, Severity } from '../types';
 
@@ -462,6 +463,7 @@ export const ThreatSimulationPage: React.FC = () => {
             style={{ height: '100%', width: '100%', background: '#060D17' }}
             key={`${selectedPreset.id}-${modifiers.roadClosure}-${modifiers.hazardExpansion}`}
           >
+            <CurrentLocationMarker />
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

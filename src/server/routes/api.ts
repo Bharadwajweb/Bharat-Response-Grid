@@ -1,5 +1,6 @@
 // ─── BRG REST API Router Index ───
 import { Router } from 'express';
+import { randomUUID } from 'node:crypto';
 import { db, type Incident, type CitizenReport, type CAPAlert } from '../database/db';
 import { fetchLiveWeather, MONITORED_REGIONS } from '../services/weatherService';
 import { fetchLiveEarthquakes } from '../services/earthquakeService';
@@ -11,6 +12,26 @@ import { broadcastEvent } from '../websocket/wsHandler';
 import { INCIDENT_SEVERITIES, INCIDENT_STATUSES, validateIncident } from '../../data/incidentValidation';
 
 export const apiRouter = Router();
+
+const authSessions = new Map<string, { userId: string; role: string }>();
+
+const requireAnyRole = (allowedRoles: string[]) => (req: any, res: any, next: any) => {
+  const authHeader = req.headers.authorization || '';
+  const token = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '') : '';
+  const session = authSessions.get(token);
+  const user = session && db.users.find((candidate) => candidate.id === session.userId);
+
+  if (!session || !user || user.status !== 'active') {
+    return res.status(401).json({ status: 'error', message: 'Authentication required' });
+  }
+
+  if (!allowedRoles.includes(user.role)) {
+    return res.status(403).json({ status: 'error', message: 'Insufficient role permissions' });
+  }
+
+  req.user = user;
+  return next();
+};
 
 // ─── 1. System Health & Data Sources Status ───
 const handleSystemStatus = async (req: any, res: any) => {
@@ -105,18 +126,42 @@ apiRouter.get('/health', handleSystemStatus);
 apiRouter.get('/system/status', handleSystemStatus);
 apiRouter.get('/system/health', handleSystemStatus);
 
+apiRouter.get('/dashboard/summary', (req, res) => {
+  const activeIncidents = db.incidents.filter((incident) => !['resolved', 'closed'].includes(incident.status));
+  const criticalIncidents = activeIncidents.filter((incident) => incident.severity === 'critical');
+  const highPriorityCount = activeIncidents.filter((incident) => ['critical', 'high'].includes(incident.severity)).length;
+
+  res.json({
+    status: 'success',
+    timestamp: new Date().toISOString(),
+    data: {
+      activeIncidents: activeIncidents.length,
+      criticalIncidents: criticalIncidents.length,
+      highPriorityCount,
+      onlineResponders: 48,
+      systemStatus: 'stable',
+      nextRecommendedAction: highPriorityCount > 0 ? 'Activate district-level surge support' : 'Maintain routine monitoring',
+    },
+  });
+});
+
 // ─── 2. Auth Endpoints ───
 apiRouter.post('/auth/login', (req, res) => {
-  const { email, role } = req.body;
+  const { email, password } = req.body;
+  const demoPassword = process.env.BRG_DEMO_PASSWORD || (process.env.NODE_ENV === 'production' ? '' : 'admin123');
 
-  // Find user by email or matching role
+  if (!demoPassword) {
+    return res.status(503).json({ status: 'error', message: 'Configure BRG_DEMO_PASSWORD before enabling demo login' });
+  }
+  if (typeof password !== 'string' || password !== demoPassword) {
+    return res.status(401).json({ status: 'error', message: 'Invalid email or password' });
+  }
+
   let user = db.users.find((u) => u.email.toLowerCase() === (email || '').toLowerCase());
-  if (!user && role) {
-    user = db.users.find((u) => u.role === role);
-  }
-  if (!user) {
-    user = db.users[0]; // fallback to national admin for demo ease
-  }
+  if (!user || user.status !== 'active') return res.status(401).json({ status: 'error', message: 'Invalid email or password' });
+
+  const token = randomUUID();
+  authSessions.set(token, { userId: user.id, role: user.role });
 
   // Record audit log
   db.auditLogs.unshift({
@@ -129,15 +174,22 @@ apiRouter.post('/auth/login', (req, res) => {
     details: `Successful sign-in from ${req.ip || '127.0.0.1'}`,
   });
 
+  db.persistState();
+
   res.json({
     status: 'success',
-    token: `brg-jwt-${Buffer.from(`${user.id}:${Date.now()}`).toString('base64')}`,
+    token,
     user,
   });
 });
 
 apiRouter.get('/auth/me', (req, res) => {
-  res.json({ status: 'success', user: db.users[0] });
+  const authHeader = req.headers.authorization || '';
+  const token = typeof authHeader === 'string' ? authHeader.replace(/^Bearer\s+/i, '') : '';
+  const session = authSessions.get(token);
+  const user = session && db.users.find((candidate) => candidate.id === session.userId && candidate.status === 'active');
+  if (!user) return res.status(401).json({ status: 'error', message: 'Authentication required' });
+  res.json({ status: 'success', user });
 });
 
 // ─── 3. Incidents Endpoints ───
@@ -172,7 +224,7 @@ apiRouter.get('/incidents/:id', (req, res) => {
   res.json({ status: 'success', data: inc });
 });
 
-apiRouter.post('/incidents', (req, res) => {
+apiRouter.post('/incidents', requireAnyRole(['central_authority', 'state_authority', 'district_authority', 'national_admin', 'state_admin', 'district_admin']), (req, res) => {
   const body = req.body;
   const newIncident: Incident = {
     id: `INC-2024-${String(db.incidents.length + 1).padStart(3, '0')}`,
@@ -208,12 +260,13 @@ apiRouter.post('/incidents', (req, res) => {
   if (validationErrors.length) return res.status(400).json({ status: 'error', message: 'Invalid incident payload', errors: validationErrors });
 
   db.incidents.unshift(newIncident);
+  db.persistState();
   broadcastEvent('incident:created', newIncident);
 
   res.status(201).json({ status: 'success', data: newIncident });
 });
 
-apiRouter.patch('/incidents/:id', (req, res) => {
+apiRouter.patch('/incidents/:id', requireAnyRole(['central_authority', 'state_authority', 'district_authority', 'national_admin', 'state_admin', 'district_admin']), (req, res) => {
   const idx = db.incidents.findIndex((i) => i.id === req.params.id);
   if (idx === -1) return res.status(404).json({ status: 'error', message: 'Incident not found' });
 
@@ -242,6 +295,7 @@ apiRouter.patch('/incidents/:id', (req, res) => {
   };
 
   db.incidents[idx] = updated;
+  db.persistState();
   broadcastEvent('incident:updated', updated);
 
   // Add audit log for lifecycle change
@@ -586,7 +640,7 @@ apiRouter.get('/alerts', (req, res) => {
   res.json({ status: 'success', total: db.alerts.length, data: db.alerts });
 });
 
-apiRouter.post('/alerts', (req, res) => {
+apiRouter.post('/alerts', requireAnyRole(['central_authority', 'state_authority', 'district_authority', 'national_admin', 'state_admin', 'district_admin']), (req, res) => {
   const body = req.body;
   const newAlert: CAPAlert = {
     identifier: `CAP-IN-${Date.now()}`,
@@ -609,6 +663,7 @@ apiRouter.post('/alerts', (req, res) => {
   };
 
   db.alerts.unshift(newAlert);
+  db.persistState();
   broadcastEvent('alert:created', newAlert);
 
   res.status(201).json({ status: 'success', data: newAlert });

@@ -18,6 +18,7 @@ import { useAppStore } from '../store/appStore';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Input';
 import { submitCitizenReportApi, fetchSheltersApi, fetchAlertsApi } from '../utils/api';
+import { brgSocket } from '../utils/socket';
 import type { Shelter, CAPAlert, Language } from '../types';
 
 const EMERGENCY_TYPES = [
@@ -53,8 +54,14 @@ export const CitizenPortalPage: React.FC = () => {
       .catch((err) => console.warn('Shelters load error', err));
 
     fetchAlertsApi()
-      .then((res) => setAlerts(res.data.slice(0, 1)))
+      .then((res) => setAlerts(res.data.slice(0, 5)))
       .catch((err) => console.warn('Alerts load error', err));
+
+    const unsubscribe = brgSocket.on<CAPAlert>('alert:created', (newAlert) => {
+      setAlerts((current) => [newAlert, ...current.filter((alert) => alert.identifier !== newAlert.identifier)].slice(0, 5));
+    });
+
+    return unsubscribe;
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -219,20 +226,29 @@ export const CitizenPortalPage: React.FC = () => {
       <main className="flex-1 max-w-2xl mx-auto w-full p-4 sm:p-6 space-y-5">
         {/* Active Emergency Advisory Banner */}
         {alerts.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-4 rounded-xl border border-red-500/30 bg-red-950/20 space-y-2 shadow-lg shadow-red-950/20"
-          >
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-              <span className="text-[11px] font-bold text-red-400 uppercase tracking-wider">
-                Official Red Alert Advisory
-              </span>
-            </div>
-            <h2 className="text-sm font-bold text-white">{alerts[0].headline}</h2>
-            <p className="text-xs text-slate-300 leading-relaxed">{alerts[0].instruction}</p>
-          </motion.div>
+          <section aria-live="polite" aria-label="Active emergency alerts" className="space-y-2">
+            {alerts.map((alert) => {
+              const isSevere = alert.severity === 'Extreme' || alert.severity === 'Severe';
+              return (
+                <motion.div
+                  key={alert.identifier}
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`p-4 rounded-xl border space-y-2 ${isSevere ? 'border-red-500/30 bg-red-950/20' : 'border-amber-500/30 bg-amber-950/20'}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${isSevere ? 'bg-red-500 animate-ping' : 'bg-amber-400'}`} />
+                    <span className={`text-[11px] font-bold uppercase tracking-wider ${isSevere ? 'text-red-400' : 'text-amber-400'}`}>
+                      {alert.urgency} {alert.severity} advisory
+                    </span>
+                    <span className="text-[11px] text-slate-500">{alert.areaDesc}</span>
+                  </div>
+                  <h2 className="text-sm font-bold text-white">{alert.headline}</h2>
+                  <p className="text-xs text-slate-300 leading-relaxed">{alert.instruction || alert.description}</p>
+                </motion.div>
+              );
+            })}
+          </section>
         )}
 
         {/* Emergency Speed Dials Strip */}

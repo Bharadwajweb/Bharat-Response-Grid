@@ -134,7 +134,7 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
   
   export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { setAuthenticated, setCurrentUser } = useAppStore();
+  const { setAuthenticated, setCurrentUser, setAuthToken } = useAppStore();
 
   const [email, setEmail] = useState('central.admin@demo.brg.local');
   const [password, setPassword] = useState('admin123');
@@ -170,36 +170,29 @@ type LoginPreset = (typeof ALL_LOGIN_PRESETS)[number];
     setLoading(true);
 
     try {
-      const res = await loginUser(email);
+      const res = await loginUser(email, password);
       if (res.user) {
+        setAuthToken(res.token);
         setCurrentUser(res.user);
         setAuthenticated(true);
+        if (rememberMe) {
+          window.localStorage.setItem('brg-auth-session', JSON.stringify({ currentUser: res.user, isAuthenticated: true, authToken: res.token }));
+          window.sessionStorage.removeItem('brg-auth-session');
+        } else {
+          window.localStorage.removeItem('brg-auth-session');
+          window.sessionStorage.setItem('brg-auth-session', JSON.stringify({ currentUser: res.user, isAuthenticated: true, authToken: res.token }));
+        }
         navigate('/');
       } else {
         throw new Error('User not found');
       }
     } catch (err: unknown) {
-      console.warn('Backend login fallback to local role preset:', err);
-      // Fallback local matching
-      const preset = ALL_LOGIN_PRESETS.find((p) => p.email.toLowerCase() === email.toLowerCase());
-      if (preset) {
-        setCurrentUser({
-          id: `USR-${preset.avatarInitials}`,
-          name: preset.name,
-          email: preset.email,
-          role: preset.role as any,
-          commandLevel: preset.commandLevel as any,
-          stateAssigned: preset.stateAssigned,
-          districtAssigned: (preset as any).districtAssigned,
-          avatarInitials: preset.avatarInitials,
-          status: 'active',
-          lastActive: 'Just now',
-        });
-        setAuthenticated(true);
-        navigate('/');
-      } else {
-        setError('Use one of the listed demo roles or enter valid official emergency command credentials.');
+      if (err instanceof Error && 'status' in err) {
+        setError('Invalid credentials or authentication is not configured on the server.');
+        return;
       }
+      console.error('Authentication service unavailable', err);
+      setError('Unable to reach the authentication service. Check your connection and try again.');
     } finally {
       setLoading(false);
     }

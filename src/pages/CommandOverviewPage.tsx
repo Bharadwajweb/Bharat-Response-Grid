@@ -29,7 +29,9 @@ import { SeverityBadge, StatusBadge, TypeBadge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Drawer } from '../components/ui/Modal';
 import { Timeline } from '../components/ui/Overlay';
+import { CurrentLocationMarker } from '../components/maps/CurrentLocationMarker';
 import { brgSocket } from '../utils/socket';
+import { getDashboardSummary } from '../utils/api';
 import type { Road, RouteOption, Severity, IncidentStatus } from '../types';
 
 function formatTimeAgo(isoString: string): string {
@@ -91,6 +93,22 @@ const MapCenterUpdater: React.FC<{ center: [number, number]; zoom: number }> = (
   return null;
 };
 
+const MapResizeHandler: React.FC = () => {
+  const map = useMap();
+
+  useEffect(() => {
+    const container = map.getContainer();
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize({ pan: false, debounceMoveend: true });
+    });
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [map]);
+
+  return null;
+};
+
 export const CommandOverviewPage: React.FC = () => {
   const navigate = useNavigate();
   const {
@@ -105,6 +123,7 @@ export const CommandOverviewPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [closedLoopRunning, setClosedLoopRunning] = useState(false);
   const [closedLoopResult, setClosedLoopResult] = useState<any>(null);
+  const [dashboardSummary, setDashboardSummary] = useState<any>(null);
 
   // Layer Toggles
   const [layers, setLayers] = useState({
@@ -165,6 +184,27 @@ export const CommandOverviewPage: React.FC = () => {
     },
   ]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const refreshDashboardSummary = async () => {
+      try {
+        const response = await getDashboardSummary();
+        if (isMounted) {
+          setDashboardSummary(response.data);
+        }
+      } catch (error) {
+        console.error('Dashboard summary unavailable', error);
+      }
+    };
+
+    refreshDashboardSummary();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Listen for real-time WebSocket events
   useEffect(() => {
     const unsubRoad = brgSocket.on('road:updated', (updatedRoad: Road) => {
@@ -187,9 +227,6 @@ export const CommandOverviewPage: React.FC = () => {
     };
   }, []);
 
-  const selectedIncident = selectedIncidentId ? getById(selectedIncidentId) : null;
-  const kpi = MOCK_KPI;
-
   // Filtered incidents based on search & jurisdiction
   const activeIncidents = useMemo(() => {
     return incidents.filter((i) => {
@@ -208,6 +245,17 @@ export const CommandOverviewPage: React.FC = () => {
   const criticalIncidents = useMemo(() => {
     return activeIncidents.filter((i) => i.severity === 'critical');
   }, [activeIncidents]);
+
+  const selectedIncident = selectedIncidentId ? getById(selectedIncidentId) : null;
+  const kpi = MOCK_KPI;
+  const opsSummary = dashboardSummary ?? {
+    activeIncidents: activeIncidents.length,
+    criticalIncidents: criticalIncidents.length,
+    highPriorityCount: criticalIncidents.length,
+    onlineResponders: 48,
+    systemStatus: 'stable',
+    nextRecommendedAction: 'Maintain routine monitoring',
+  };
 
   // Execute Closed-Loop Response Demonstration
   const triggerClosedLoopSimulation = async () => {
@@ -260,9 +308,9 @@ export const CommandOverviewPage: React.FC = () => {
   };
 
   return (
-    <div className="brg-page flex flex-col min-h-screen text-slate-100">
+    <div className="brg-page flex min-h-full flex-col text-slate-100">
       {/* ─── Command Center Header ─── */}
-      <div className="brg-page-header px-4 sm:px-6 py-5 border-b sticky top-0 z-20">
+      <div className="brg-page-header relative px-4 py-4 border-b sm:px-6 sm:py-5">
         <div className="mb-4">
           <p className="brg-eyebrow">National operations picture</p>
           <h1 className="brg-page-title">India Disaster Intelligence</h1>
@@ -326,7 +374,7 @@ export const CommandOverviewPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 p-3 sm:p-4 space-y-3.5 max-w-[1920px] mx-auto w-full">
+      <div className="mx-auto w-full max-w-[1920px] min-w-0 flex-1 space-y-3.5 p-3 sm:p-4">
         {/* Closed Loop Alert Banner (when triggered) */}
         {closedLoopResult && (
           <motion.div
@@ -354,6 +402,20 @@ export const CommandOverviewPage: React.FC = () => {
 
         {/* ─── Compact Operational KPI Strip ─── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          <div className="p-3 rounded-xl bg-[#0D1828] border border-emerald-500/20 flex flex-col justify-between shadow-lg shadow-emerald-500/5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">System Health</span>
+              <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">
+                {opsSummary.systemStatus === 'stable' ? 'STABLE' : 'ALERT'}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between mt-2">
+              <span className="text-2xl font-black text-white">{opsSummary.activeIncidents}</span>
+              <span className="text-[11px] font-semibold text-emerald-400">Live feed</span>
+            </div>
+            <p className="mt-2 text-[11px] text-slate-400">{opsSummary.nextRecommendedAction}</p>
+          </div>
+
           <div className="p-3 rounded-xl bg-[#0D1828] border border-white/8 flex flex-col justify-between">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Active Incidents</span>
             <div className="flex items-baseline justify-between mt-1">
@@ -404,9 +466,9 @@ export const CommandOverviewPage: React.FC = () => {
         </div>
 
         {/* ─── Main Workspace: 65% Dominant Map / 35% Operational Intelligence ─── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 items-start">
+        <div className="grid min-w-0 grid-cols-1 items-stretch gap-3.5 xl:grid-cols-12">
           {/* ─── 65% Dominant Live GIS Map (8 cols on lg) ─── */}
-          <div className="lg:col-span-8 flex flex-col rounded-2xl bg-[#091526] border border-white/10 overflow-hidden shadow-2xl relative min-h-[580px] lg:h-[720px]">
+          <div className="relative flex h-[min(72vh,760px)] min-h-[480px] min-w-0 flex-col overflow-hidden rounded-xl border border-white/10 bg-[#091526] shadow-2xl xl:col-span-8 xl:h-[720px] xl:min-h-0">
             {/* In-Map Top Command Toolbar */}
             <div className="px-3.5 py-2.5 bg-[#0A1627] border-b border-white/10 flex items-center justify-between flex-wrap gap-2 z-10">
               <div className="flex items-center gap-2">
@@ -469,14 +531,16 @@ export const CommandOverviewPage: React.FC = () => {
             </div>
 
             {/* Map Container */}
-            <div className="flex-1 w-full h-full relative">
+            <div className="relative min-h-0 w-full flex-1">
               <MapContainer
                 center={activeJurisdiction.center}
                 zoom={activeJurisdiction.zoom}
                 scrollWheelZoom={true}
                 className="w-full h-full"
-                style={{ background: '#07111F', minHeight: '520px' }}
+                style={{ background: '#07111F', height: '100%', width: '100%' }}
               >
+                <MapResizeHandler />
+                <CurrentLocationMarker />
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -637,7 +701,7 @@ export const CommandOverviewPage: React.FC = () => {
           </div>
 
           {/* ─── 35% Operational Intelligence Column (4 cols on lg) ─── */}
-          <div className="lg:col-span-4 space-y-3.5">
+          <div className="min-w-0 space-y-3.5 xl:col-span-4">
             {/* Critical Incident Queue */}
             <div className="bg-[#091526] border border-white/10 rounded-2xl p-4 shadow-xl">
               <div className="flex items-center justify-between pb-3 border-b border-white/8">

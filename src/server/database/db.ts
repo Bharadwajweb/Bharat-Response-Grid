@@ -30,6 +30,9 @@ import {
   type OperationalAreaInfo,
 } from '../../data/indiaGeographyMaster';
 
+import fs from 'node:fs';
+import path from 'node:path';
+
 export type { Incident, StateUTInfo, DistrictInfo, OperationalAreaInfo };
 
 export interface Role {
@@ -304,6 +307,7 @@ export class BRGInMemoryRepository implements IBRGRepository {
   public mode: 'IN-MEMORY' | 'POSTGRESQL/POSTGIS' = 'IN-MEMORY';
   public isLiveDatabase: boolean = false;
   public databaseUrlConfigured: boolean = false;
+  private readonly persistencePath = path.resolve(process.cwd(), 'data', 'brg-db.json');
 
   public roles: Role[] = [];
   public users: User[] = [];
@@ -329,7 +333,83 @@ export class BRGInMemoryRepository implements IBRGRepository {
 
   constructor() {
     this.seed();
+    this.restorePersistedState();
     this.checkDatabaseConfig();
+    this.persistState();
+  }
+
+  public persistState() {
+    try {
+      const payload = {
+        savedAt: new Date().toISOString(),
+        data: {
+          roles: this.roles,
+          users: this.users,
+          incidents: this.incidents,
+          hazards: this.hazards,
+          shelters: this.shelters,
+          shelterCapacityHistory: this.shelterCapacityHistory,
+          teams: this.teams,
+          resources: this.resources,
+          hospitals: this.hospitals,
+          infrastructure: this.infrastructure,
+          roads: this.roads,
+          citizenReports: this.citizenReports,
+          alerts: this.alerts,
+          riskZones: this.riskZones,
+          safeZones: this.safeZones,
+          evacuationRoutes: this.evacuationRoutes,
+          cachedEarthquakes: this.cachedEarthquakes,
+          cachedWeather: this.cachedWeather,
+          auditLogs: this.auditLogs,
+          researchRuns: this.researchRuns,
+          researchResults: this.researchResults,
+        },
+      };
+
+      fs.mkdirSync(path.dirname(this.persistencePath), { recursive: true });
+      fs.writeFileSync(this.persistencePath, JSON.stringify(payload, null, 2), 'utf8');
+    } catch (error) {
+      console.warn('[BRG DB] Persist failed:', error);
+    }
+  }
+
+  private restorePersistedState() {
+    try {
+      if (!fs.existsSync(this.persistencePath)) {
+        return;
+      }
+
+      const raw = fs.readFileSync(this.persistencePath, 'utf8');
+      if (!raw.trim()) return;
+
+      const parsed = JSON.parse(raw) as { data?: Partial<IBRGRepository> };
+      const snapshot = (parsed.data ?? parsed) as Partial<IBRGRepository> & Record<string, any>;
+
+      if (Array.isArray(snapshot.roles)) this.roles = snapshot.roles as Role[];
+      if (Array.isArray(snapshot.users)) this.users = snapshot.users as User[];
+      if (Array.isArray(snapshot.incidents)) this.incidents = snapshot.incidents as Incident[];
+      if (Array.isArray(snapshot.hazards)) this.hazards = snapshot.hazards as Hazard[];
+      if (Array.isArray(snapshot.shelters)) this.shelters = snapshot.shelters as Shelter[];
+      if (Array.isArray(snapshot.shelterCapacityHistory)) this.shelterCapacityHistory = snapshot.shelterCapacityHistory as ShelterCapacityHistory[];
+      if (Array.isArray(snapshot.teams)) this.teams = snapshot.teams as Team[];
+      if (Array.isArray(snapshot.resources)) this.resources = snapshot.resources as Resource[];
+      if (Array.isArray(snapshot.hospitals)) this.hospitals = snapshot.hospitals as Hospital[];
+      if (Array.isArray(snapshot.infrastructure)) this.infrastructure = snapshot.infrastructure as Infrastructure[];
+      if (Array.isArray(snapshot.roads)) this.roads = snapshot.roads as Road[];
+      if (Array.isArray(snapshot.citizenReports)) this.citizenReports = snapshot.citizenReports as CitizenReport[];
+      if (Array.isArray(snapshot.alerts)) this.alerts = snapshot.alerts as CAPAlert[];
+      if (Array.isArray(snapshot.riskZones)) this.riskZones = snapshot.riskZones as RiskZone[];
+      if (Array.isArray(snapshot.safeZones)) this.safeZones = snapshot.safeZones as SafeZone[];
+      if (Array.isArray(snapshot.evacuationRoutes)) this.evacuationRoutes = snapshot.evacuationRoutes as EvacuationRoute[];
+      if (Array.isArray(snapshot.cachedEarthquakes)) this.cachedEarthquakes = snapshot.cachedEarthquakes as EarthquakeEvent[];
+      if (snapshot.cachedWeather && typeof snapshot.cachedWeather === 'object') this.cachedWeather = snapshot.cachedWeather as Record<string, WeatherData>;
+      if (Array.isArray(snapshot.auditLogs)) this.auditLogs = snapshot.auditLogs as AuditRecord[];
+      if (Array.isArray(snapshot.researchRuns)) this.researchRuns = snapshot.researchRuns as ResearchRun[];
+      if (Array.isArray(snapshot.researchResults)) this.researchResults = snapshot.researchResults as ResearchResultRecord[];
+    } catch (error) {
+      console.warn('[BRG DB] Restore failed, using seeded data:', error);
+    }
   }
 
   public checkDatabaseConfig() {

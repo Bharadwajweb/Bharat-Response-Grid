@@ -11,19 +11,41 @@ import type {
 
 const API_BASE = '/api';
 
+async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
+  const headers = new Headers(init.headers);
+  try {
+    const saved = window.localStorage.getItem('brg-auth-session') || window.sessionStorage.getItem('brg-auth-session');
+    const authToken = saved ? (JSON.parse(saved) as { authToken?: string }).authToken : undefined;
+    if (authToken) headers.set('Authorization', `Bearer ${authToken}`);
+  } catch {
+    // Continue without a token when the browser session is unavailable or invalid.
+  }
+  return fetch(input, { ...init, headers });
+}
+
 export async function getSystemStatus() {
-  const res = await fetch(`${API_BASE}/system/status`);
+  const res = await apiFetch(`${API_BASE}/system/status`);
   if (!res.ok) throw new Error('Failed to fetch system status');
   return res.json();
 }
 
-export async function loginUser(email: string, role?: string) {
+export async function getDashboardSummary() {
+  const res = await apiFetch(`${API_BASE}/dashboard/summary`);
+  if (!res.ok) throw new Error('Failed to fetch dashboard summary');
+  return res.json();
+}
+
+export async function loginUser(email: string, password: string) {
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, role }),
+    body: JSON.stringify({ email, password }),
   });
-  if (!res.ok) throw new Error('Authentication failed');
+  if (!res.ok) {
+    const error = new Error('Authentication failed');
+    Object.assign(error, { status: res.status });
+    throw error;
+  }
   return res.json();
 }
 
@@ -35,7 +57,7 @@ export async function fetchLiveWeatherApi(regionKey: string = 'visakhapatnam'): 
   lastUpdated: string;
   station: { name: string; state: string; lat: number; lng: number };
 }> {
-  const res = await fetch(`${API_BASE}/weather/current?region=${regionKey}`);
+  const res = await apiFetch(`${API_BASE}/weather/current?region=${regionKey}`);
   if (!res.ok) throw new Error('Failed to fetch weather');
   return res.json();
 }
@@ -49,7 +71,7 @@ export async function fetchLiveEarthquakesApi(minMag: number = 2.5): Promise<{
   regionalAlertCount: number;
   disclaimer: string;
 }> {
-  const res = await fetch(`${API_BASE}/earthquakes/latest?minMag=${minMag}`);
+  const res = await apiFetch(`${API_BASE}/earthquakes/latest?minMag=${minMag}`);
   if (!res.ok) throw new Error('Failed to fetch earthquakes');
   return res.json();
 }
@@ -65,7 +87,7 @@ export async function analyzeDecisionApi(params: {
   populationInVicinity?: number;
   userLocation?: [number, number];
 }): Promise<{ status: string; data: DecisionIntelligenceOutput }> {
-  const res = await fetch(`${API_BASE}/decision/analyze`, {
+  const res = await apiFetch(`${API_BASE}/decision/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
@@ -88,7 +110,7 @@ export async function recommendRoutesApi(params: {
     disclaimer: string;
   };
 }> {
-  const res = await fetch(`${API_BASE}/routes/recommend`, {
+  const res = await apiFetch(`${API_BASE}/routes/recommend`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
@@ -105,7 +127,7 @@ export async function runResearchBenchmarkApi(
   status: string;
   data: ResearchEvaluationResult;
 }> {
-  const res = await fetch(`${API_BASE}/research/run`, {
+  const res = await apiFetch(`${API_BASE}/research/run`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ scenarioId, seed, sampleSize }),
@@ -115,13 +137,13 @@ export async function runResearchBenchmarkApi(
 }
 
 export async function fetchSheltersApi(): Promise<{ status: string; data: Shelter[] }> {
-  const res = await fetch(`${API_BASE}/shelters`);
+  const res = await apiFetch(`${API_BASE}/shelters`);
   if (!res.ok) throw new Error('Failed to fetch shelters');
   return res.json();
 }
 
 export async function fetchAlertsApi(): Promise<{ status: string; data: CAPAlert[] }> {
-  const res = await fetch(`${API_BASE}/alerts`);
+  const res = await apiFetch(`${API_BASE}/alerts`);
   if (!res.ok) throw new Error('Failed to fetch alerts');
   return res.json();
 }
@@ -134,7 +156,7 @@ export async function submitCitizenReportApi(report: {
   location: any;
   contact?: string;
 }): Promise<{ status: string; trackingId: string; data: any }> {
-  const res = await fetch(`${API_BASE}/citizen/reports`, {
+  const res = await apiFetch(`${API_BASE}/citizen/reports`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(report),
@@ -144,7 +166,7 @@ export async function submitCitizenReportApi(report: {
 }
 
 export async function fetchCitizenReportsApi(): Promise<{ status: string; data: any[] }> {
-  const res = await fetch(`${API_BASE}/citizen/reports`);
+  const res = await apiFetch(`${API_BASE}/citizen/reports`);
   if (!res.ok) throw new Error('Failed to fetch citizen reports');
   return res.json();
 }
@@ -154,7 +176,7 @@ export async function verifyCitizenReportApi(
   verificationStatus: 'NEW' | 'UNVERIFIED' | 'CORROBORATED' | 'VERIFIED' | 'REJECTED',
   notes?: string
 ): Promise<{ status: string; data: any }> {
-  const res = await fetch(`${API_BASE}/citizen/reports/${id}/verify`, {
+  const res = await apiFetch(`${API_BASE}/citizen/reports/${id}/verify`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status: verificationStatus, notes }),
@@ -170,7 +192,7 @@ export async function triggerClosedLoopBlockRoadApi(params?: {
   district?: string;
   state?: string;
 }) {
-  const res = await fetch(`${API_BASE}/closed-loop/block-road`, {
+  const res = await apiFetch(`${API_BASE}/closed-loop/block-road`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params || {}),

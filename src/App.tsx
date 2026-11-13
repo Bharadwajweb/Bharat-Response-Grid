@@ -19,6 +19,7 @@ import { CitizenPortalPage } from './pages/CitizenPortalPage';
 import { UserManagementPage } from './pages/UserManagementPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { useAppStore } from './store/appStore';
+import { LocationAccessGate } from './components/LocationAccessGate';
 import './i18n';
 
 // Profile page (simple)
@@ -68,8 +69,9 @@ function App() {
   }, [theme]);
 
   return (
-    <BrowserRouter>
-      <Routes>
+    <LocationAccessGate>
+      <BrowserRouter>
+        <Routes>
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/citizen" element={<CitizenPortalPage />} />
@@ -111,8 +113,9 @@ function App() {
 
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+        </Routes>
+      </BrowserRouter>
+    </LocationAccessGate>
   );
 }
 

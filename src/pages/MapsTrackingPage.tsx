@@ -35,6 +35,7 @@ import { useIncidentStore } from '../store/incidentStore';
 import { useAppStore } from '../store/appStore';
 import { SeverityBadge, StatusBadge, TypeBadge } from '../components/ui/Badge';
 import { ProgressBar } from '../components/ui/Card';
+import { CurrentLocationMarker } from '../components/maps/CurrentLocationMarker';
 import { brgSocket } from '../utils/socket';
 import type { Incident, Shelter, Team, Resource, Severity } from '../types';
 import { getAllStatesAndUTs, getDistrictsForState, getGeographyCoverageSummary } from '../data/indiaGeographyMaster';
@@ -963,6 +964,7 @@ export const MapsTrackingPage: React.FC = () => {
           style={{ height: '100%', width: '100%', background: '#060D17' }}
           zoomControl={false}
         >
+          <CurrentLocationMarker />
           {/* Map Instance Reference Tracker */}
           <MapController mapRef={mapInstanceRef} />
 
